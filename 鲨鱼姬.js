@@ -50,82 +50,6 @@ var dummy=()=>{
 			}
 		}
 	}
-	///@deprecated
-	class asyncIterator{
-		static async*take(a,l){for(let i=0;i<l;i++)yield(await a.next()).value}
-		static async*tryRecursive(i=0)/*试试递归*/{console.count("tryRecursive");yield i++;yield*this.tryRecursive(i)} ///TODO: 查查看有没有更好写法
-		static async*tryIterate()/*试试迭代*/{let i=0;while(true){console.count("tryIterate");yield i++}}
-		static asyncDelay=(b,delay=1000)=>new Promise((resolve,reject)=>setTimeout(()=>resolve(b),delay))
-		static async*tryDelayYield(){
-			for await(const i of this.tryRecursive()){
-				const result=await this.asyncDelay(i)
-				yield result}}
-		static async*tryRearrang(){
-			var m=[];
-			(async()=>{for await(const i of this.tryDelayYield())m.push(i)})()
-			for await(const i of this.tryRecursive()){
-				const result=await this.asyncDelay(i,3000)
-				yield m
-				m=[]
-			}
-		}
-		static async*map(a,f){for await(const b of a)yield f(b)}
-		static async*filter(l,f){for await(const i of l){if(f(i))yield i}}
-		static async*filterUndedineds(l){yield*this.filter(l,i=>i!=undefined)}
-		///@deprecated remomend to use filterUndedineds explicitly, 这行是留下备忘、作参考的
-		static async*collect(a,f){yield*this.filterUndedineds(this.map(a,f))}
-		///scan with state, like F# Seq.scan.
-		///@deprecated 实际用到的不是这条，白写了……
-		static async*reduce(l,f,initial=0){let memory=initial;for await(const i of l){const[r,state]=f(i,memory);memory=state;yield r}}
-	}
-	///@deprecated
-	const testAsyncIterator=async()=>{
-		const iter=asyncIterator
-		const testTryRearrang=await(async()=>{
-			for await(const i of iter.take(iter.tryRearrang(),11))console.log(i)
-		})()
-		const testDelayYield=await(async()=>{
-			for await(const i of iter.take(iter.tryDelayYield(),11))console.log(i)
-		})()
-		const asyncDelay=await(async()=>{
-			console.trace(await asyncIterator.asyncDelay("returned"))
-		})()
-		///经过测试迭代比递归快很多，大概只用了十几分之一时间，可能是因为优先权
-		const testTryRecursive=(async()=>{
-			const a=asyncIterator.take(asyncIterator.tryRecursive(),1111)
-			for await(const i of a)console.log(i)
-		})()
-		const testTryIterate=(async()=>{
-			const a=asyncIterator.take(asyncIterator.tryIterate(),1111)
-			for await(const b of a)console.log(b)
-		})()
-		const testTake=await(async()=>{
-			const a=asyncIterator.take(asyncIterator.numbers(),5)
-			for await(const b of a)console.log(b)
-		})()
-		const numbers=()=>asyncIterator.take(asyncIterator.numbers(),5)
-		const testReduce=await(async()=>{
-			const a=asyncIterator.reduce(numbers(),(i,s)=>[i+s,i+s])
-			for await(const i of a)console.log(i)
-		})()
-		const testFilterUndefineds=await(async()=>{
-			const a=asyncIterator.map(numbers(),c=>c%2==0?`!!${c}??`:undefined)
-			const b=asyncIterator.filterUndedineds(a)
-			for await(const i of b)console.log(i)
-		})()
-		const testMap=await(async()=>{
-			const b=asyncIterator.map(numbers(),c=>`!!${c}??`)
-			for await(const a of b)console.log(a)
-		})()
-		const testFilter=await(async()=>{
-			const b=asyncIterator.filter(numbers(),c=>c%2==0)
-			for await(const a of b)console.log(a)
-		})()
-		const testCollect=await(async()=>{
-			const c=asyncIterator.collect(numbers(),c=>c%2==0?`!!${c}??`:undefined)
-			for await(const a of c)console.log(a)
-		})()
-	}
 	const asyncIterator=(()=>{
 		const learningAsync=(()=>{
 			let tryAsync=(()=>{
@@ -159,6 +83,7 @@ var dummy=()=>{
 				});
 				promise.then(value => console.log(value));
 			}
+			const tryPromiseReject=()=>{}
 			///备忘——同时运行多个async（可能——以及把普通函数异步执行）
 			//;(async()=>{for await(const _ of ticks)send(messages.next().value)})()
 			//;(async()=>{for await(const a of autoAnswering())send(a)})()
@@ -169,14 +94,20 @@ var dummy=()=>{
 			//])
 
 			//备忘2——什么情况下需要写async、await
-			//https://dev.to/codeprototype/async-without-await-await-without-async--oom
-			//这个页面说当函数返回Promise时，就隐性成为async，是否明写async都没有影响
-				//const result = await getPromise("a");
-				//console.log('async/await -> ', result);
-			//和
-				//getPromise("b").then(result => {
-				//	console.log('then -> ', result);
-			//一样
+			//参见：https://dev.to/codeprototype/async-without-await-await-without-async--oom
+			///一个函数返回Promise，和声明async，可能是等效的，二者选其一即可，也可以即声明async又返回Promise，这样没有什么特别只是罗嗦
+			///await promise和promise.then也是等效的，当有返回值时const a=await promise和promise.then(a=>...)等效
+			///对于async iterator可能也雷同，只要标了async，return或者yield出来的都是Promise
+			const tryAsyncGenerator=(()=>{
+				///尝试了一下async generator的写法，记录一下备忘
+				///经过实验，async function*()不是得到一个async function，而是这个生成器的每个next()都会得到一个Promise
+				const aa=async function*(){yield 1;yield 22;yield 333}
+				//undefined
+				const a1=await aa() ///**异步生成器不需要await**，异步生成器的每个`next()`才需要。这么写不会报错大概只是因为`await`不提供具体功能只是解释器标记，写了await会兼容不需要await的函数。
+				//undefined
+				a1.next()
+				//Promise {<resolved>: {…}} ///**异步生成器的每个`next()`得到的是Promise**
+				})()
 		})()
 		const take=async function*(l,count){for(let i=0;i<count;i++)yield(await l.next()).value}
 		///@deprecated 生成器迭代后会关闭，下面有解释
@@ -231,16 +162,94 @@ var dummy=()=>{
 			//}
 			/////依时间段进行打包，把每个时间段中的水包装
 			//const packageByTime=()=>{}
-			const asyncDelay=(b,delay=1e3)=>new Promise((resolve,reject)=>setTimeout(()=>resolve(b()),delay))
-			const testAsyncDelay=runTest&&console.log(await asyncDelay(()=>"delay returned"))
+			///似乎`setTimeout`就是异步的，区别是Promise可以await，setTimeout不能
+			const promiseTimeout=(delay=1e3,f=()=>{})=>new Promise((resolve,reject)=>setTimeout(()=>resolve(f()),delay))
+			const testPromisedTimeout=runTest&&console.log(await promiseTimeout(1e3,()=>"delay returned"))
+			const tryDelayYieldNumbersOld=async function*(interval=1e3){
+				for await(const i of tryRecursive())yield await promiseTimeout(interval,()=>i)}
 			const tryDelayYieldNumbers=async function*(interval=1e3){
-				for await(const i of tryRecursive())yield await asyncDelay(()=>i,interval)}
+				for await(const i of tryRecursive())(await promiseTimeout(interval),yield i)}
 			const testDelayYieldNumbers=runTest&&await logTest(take(tryDelayYieldNumbers(),5))
+			const testDelayYieldNumbers_Resuming=runTest&&(()=>{
+				const a=tryDelayYieldNumbers(8e2)
+				for(i=3;i--;i>0)console.log(a.next().value)
+				for(i=4;i--;i>0)console.log(a.next().value)})()
+			const testDelayYieldNumbers_Resuming_NotFitting_Failed=runTest&&(async()=>{
+				const a=tryDelayYieldNumbers(6e2)
+				let m=[],endOn=Date.now()+3e3
+				while(Date.now()<endOn)m.push((await a.next()).value) ///3/.6=5
+				console.log(m)
+				m=[],endOn=Date.now()+4e3
+				///问题在这里产生了,即使等待时间已经过了,最后一次`await a.next()`仍然会被等待完成,要可以暂停当前await,下次再继续
+				///大致有几个思路，一、先看看是否有内建的暂停/继续方法——查了一下，是没有的
+				///二、或许也可以把等待和yield分开执行；
+				///三、到时间时直接替换M，这条看起来可行性最好，但不确定会不会有对M的引用问题；
+				///四、在while里通过setTimeout来break
+				///五、next()之前检查是否已经超时，如果超时则break，并立即在下个迭代中yield，此方法扩展性不好
+				///六、yield时如果已经超时了，暂存最后一个，下次yield
+				///七、超时作为一个Promise，查询发现Promise有个rase函数，这条看来最靠谱，应该可以暂停，但不知道能否继续
+				///- 现在遇到的问题是for await asynchronous generator出来的不是Promise！！
+				///- 这就引申到一个有趣的问题：**async** generator还是generator with `next()` returns a Promise？两者会有什么区别吗？
+				///	*测试发现这两个是一个东西*
+				///- 此方案的问题是Promise rase不能自动reject，需要显性操作reject
+				///八、应该比较容易实现的方式是做一个纯粹占时间的yield，再yield实际内容
+				///- “When generator yields, it is paused, until iterator calls next() on it. Then the generator resumes the execution, until it yields again”[https://stackoverflow.com/a/45240956/5975828]
+				///-	还是会有问题……实际（例如弹幕）是**不能预知等待时间的！**那要怎样yield等待时间？
+				///九、或者可能就颠倒一下等待和yield数据？
+				while(Date.now()<endOn)m.push((await a.next()).value) ///4/.6=6...4 本应执行6次,实际7次
+				console.log(m)
+				m=[],endOn=Date.now()+5e3
+				while(Date.now()<endOn)m.push((await a.next()).value) ///5.4/.6=9
+				console.log(m)})()
+			///对咯！
+			const testPromiseRace=runTest&&(async()=>{
+				const a=tryDelayYieldNumbers(6e3)
+				let pause,promiseToPause=new Promise(resolve=>{pause=resolve})
+				console.trace(await Promise.race([a.next(),promiseToPause]))
+				pause()
+			})()
+			runTest=true
+			///失败，此方案的问题是**Promise rase不能自动reject**，需要显性操作reject
+			///之后问题的关键是reject
+			////JS pause yield
+			////JS yield rejected again
+			////JS promise rejected again
+			const testDelayYieldNumbers_PausingResumingWithPromiseRace=runTest&&(async()=>{
+				const a=tryDelayYieldNumbers(6e2)
+				let pause,promiseToPause=new Promise(resolve=>{pause=resolve})
+				setTimeout(pause,3e3)
+				console.log(await Promise.race([a.next(),promiseToPause]))
+				console.log(await Promise.race([a.next(),promiseToPause]))
+				console.log(await Promise.race([a.next(),promiseToPause]))
+				console.log(await Promise.race([a.next(),promiseToPause]))
+				///promiseToPause已经是resolved，所以从第五个开始后面不会迭代
+				console.log(await Promise.race([a.next(),promiseToPause]))
+				console.log(await Promise.race([a.next(),promiseToPause]))
+				console.log(await Promise.race([a.next(),promiseToPause]))
+				///重计，Promise不能reset：https://stackoverflow.com/a/26874028/5975828
+				promiseToPause=new Promise(resolve=>{pause=resolve})
+				setTimeout(pause,4e3)
+				console.log(await Promise.race([a.next(),promiseToPause]))
+				console.log(await Promise.race([a.next(),promiseToPause]))
+				console.log(await Promise.race([a.next(),promiseToPause]))
+				console.log(await Promise.race([a.next(),promiseToPause]))
+				console.log(await Promise.race([a.next(),promiseToPause]))
+				console.log(await Promise.race([a.next(),promiseToPause]))
+				console.log(await Promise.race([a.next(),promiseToPause]))
+				console.log(await Promise.race([a.next(),promiseToPause]))
+				console.log(await Promise.race([a.next(),promiseToPause]))
+				console.log(await Promise.race([a.next(),promiseToPause]))
+				console.log(await Promise.race([a.next(),promiseToPause]))
+				//const loop=async duration=>{
+				//	console.log(await Promise.race([a.next(),promiseToPause]))
+				//	setTimeout(pause,duration)
+				//}
+			})()
 			const tryRearrange=async function*(){
 				var m=[];
 				(async()=>{for await(const i of tryDelayYieldNumbers())m.push(i)})()
 				for await(const i of tryRecursive()){
-					const result=await asyncDelay(()=>undefined,3000)
+					const result=await promiseTimeout(3000)
 					yield m
 					m=[]
 				}
@@ -250,7 +259,7 @@ var dummy=()=>{
 				var m=[];
 				(async()=>{for await(const i of tryDelayYieldNumbers())m.push(i)})()
 				while(true){
-					await asyncDelay(()=>undefined,3000)
+					await promiseTimeout(3000)
 					yield m
 					m=[]
 				}
@@ -262,7 +271,7 @@ var dummy=()=>{
 				///这里会有个问题——怎样确定这个for await占用的资源是不是被释放了？
 				;(async()=>{for await(const i of l){if(toBreak)break;else m.push(i)}})()
 				return()=>(toBreak=true,[...m])}
-			///这里有个问题卡了好几天
+			///这是个失败的尝试，这里有个问题卡了好几天
 			///对异步迭代做for await，break后，该迭代会成`GeneratorStatus:closed`，不能再次迭代
 			///（查了MDN，非异步迭代也是这样）
 			///大量查询也没有找到close之后再open的方法，
@@ -274,31 +283,31 @@ var dummy=()=>{
 				for await(const i of l){if(count-->0)console.log(i);else break}
 				count=4
 				for await(const i of l){if(count-->0)console.log(i);else break}
-				debugger
 				count=5
 				for await(const i of l){if(count-->0)console.log(i);else break}
 			})()
 			const preload=l=>{
 				const m=[];let breakup=false
-				///这里会有个问题——怎样确定这个for await占用的资源是不是被释放了？
+				///这里会有个问题——能确认这个for await占用的资源被释放了吗？
 				;(async()=>{while(!breakup){m.push((await l.next()).value)}})()
 				return()=>(breakup=true,m)
 			}
-			const testPreload=runTest&&console.log(await asyncDelay(preload(tryDelayYieldNumbers()),3e3))
+			const testPreload=runTest&&console.log(await promiseTimeout(3e3,preload(tryDelayYieldNumbers())))
 			const tryRearrange3=async function*(){
 				const a=tryDelayYieldNumbers()
 				console.log(1)
-				yield(await asyncDelay(preload(a),1e4))
+				yield(await promiseTimeout(1e4,preload(a)))
 				console.log(1)
-				yield(await asyncDelay(preload(a),1e4))
+				yield(await promiseTimeout(1e4,preload(a)))
 				console.log(1)
-				yield(await asyncDelay(preload(a),1e4))
+				yield(await promiseTimeout(1e4,preload(a)))
 			}
 			const testTryRearrange3=runTest&&await logTest(tryRearrange3())
 			const tryRearrange4=async function*(){
 				const a=tryDelayYieldNumbers(888)
-				while(true){yield(await asyncDelay(preload(a),3e3))}}
-			runTest=true
+				while(true){yield(await promiseTimeout(3e3,preload(a)))}}
+			///TODO:当前问题：每一组都会跳一个
+			///要改下生成器，等待和`yield`不能一个操作
 			const testTryRearrange4=runTest&&await logTest(tryRearrange4())
 		//})()
 	})()
