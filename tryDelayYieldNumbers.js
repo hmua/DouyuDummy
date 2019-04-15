@@ -61,37 +61,64 @@ const asyncIterator=(()=>{
 			//Promise {<resolved>: {…}} ///**异步生成器的每个`next()`得到的是Promise**
 			})()
 	})()
-	const take=async function*(l,count){for(let i=0;i<count;i++)yield(await l.next()).value}
-	///@deprecated 生成器迭代后会关闭，下面有解释
-	const takeThroughIterate=async function*(l,count){for await(const i of l){if(count-->0)yield i;else break}}
+	var ignoreTest=true
 	///发现了什么？对不是async函数也可以await，就是说处理异步迭代的代码可以直接处理非异步的
 	///那是不是**所有非异步代码都直接是异步的**呢？？
 	///所以可能要把完全没必要异步的函数重写成非异步的
-	const numbers=function*(){let i=0;while(true)yield i++}
-	const logTest=async l=>{for await(const i of l)console.log(i)}
-	let runTest=false
+	const numbers=(()=>{
+		const recursive=function*(i=0)/*递归*/{yield i++;yield*recursive(i)}
+		///经过测试迭代比递归快很多，大概只用了十几分之一时间，可能是因为优先权
+		const testTryRecursive=ignoreTest||(a=recursive(),
+			b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:0,done:false}),b),
+			b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:1,done:false}),b),
+			b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:2,done:false}),b),
+			b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:3,done:false}),b),
+			b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:4,done:false}),b))
+		const iterate=function*()/*迭代*/{i=0;while(true)yield i++} //需要特别注意外层不能有同名i的变量！
+		const testTryIterate=ignoreTest||(a=iterate(),
+			b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:0,done:false}),b),
+			b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:1,done:false}),b),
+			b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:2,done:false}),b),
+			b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:3,done:false}),b),
+			b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:4,done:false}),b))
+		return recursive
+	})()
+	///@deprecated 生成器迭代后会关闭，下面有解释
+	const takeThroughIterate=async function*(l,count){for await(const i of l){if(count-->0)yield i;else break}}
+	const take=async function*(l,count){for(let i=0;i<count;i++)yield(await l.next()).value}
 	///**调用异步函数时，不管这个被调用到的函数里面是否await了，如果调用的函数需要等被调用的函数的话，一定要在调用函数中写await**
 	///还是刚刚理解到这一点……
-	const testTake=runTest&&await logTest(take(numbers(),5))
-	const tryRecursive=async function*(i=0)/*试试递归*/{console.count("tryRecursive");yield i++;yield*tryRecursive(i)} ///TODO: 查查看有没有更好写法
-	///经过测试迭代比递归快很多，大概只用了十几分之一时间，可能是因为优先权
-	const testTryRecursive=runTest&&await logTest(take(tryRecursive(),11))
-	const tryIterate=async function*()/*试试迭代*/{let i=0;while(true){console.count("tryIterate");yield i++}}
-	const testTryIterate=runTest&&await logTest(take(tryIterate(),11))
-
-	const map=async function*(a,f){for await(const b of a)yield f(b)}
-	const testMap=runTest&&await logTest(map(take(numbers(),5),c=>`茶树：${c}`))
+	const testTake=ignoreTest||(a=take(numbers(),5),
+		b=(await a.next()),console.assert(JSON.stringify(b)==JSON.stringify({value:0,done:false}),b),
+		b=(await a.next()),console.assert(JSON.stringify(b)==JSON.stringify({value:1,done:false}),b),
+		b=(await a.next()),console.assert(JSON.stringify(b)==JSON.stringify({value:2,done:false}),b),
+		b=(await a.next()),console.assert(JSON.stringify(b)==JSON.stringify({value:3,done:false}),b),
+		b=(await a.next()),console.assert(JSON.stringify(b)==JSON.stringify({value:4,done:false}),b),
+		b=(await a.next()),console.assert(JSON.stringify(b)==JSON.stringify({value:undefined,done:true}),b),
+		b=(await a.next()),console.assert(JSON.stringify(b)==JSON.stringify({value:undefined,done:true}),b),
+		b=(await a.next()),console.assert(b.done!=false),b)
+	
+	const map=async function*(l,f,i=0){const a=await l.next();a.done||(yield f(a.value,i),yield*map(l,f,++i))}
+	const testMap=ignoreTest||(a=(map(numbers(),(i,j)=>[i*11,j*222])),
+		b=(await a.next()),console.assert(JSON.stringify(b)==JSON.stringify({value:[0,0],done:false}),b),
+		b=(await a.next()),console.assert(JSON.stringify(b)==JSON.stringify({value:[11,222],done:false}),b),
+		b=(await a.next()),console.assert(JSON.stringify(b)==JSON.stringify({value:[22,444],done:false}),b))
+	//const iter=async function*(l,f){for await(const i of l)f(i)}
+	const iter=async function(l,f,i=0){const a=await l.next();a.done||(f(a.value,i),await iter(l,f,++i))}
+	const testIter=ignoreTest||(a=[],(await iter(take(numbers(),5),(i,j)=>a.push(i*10+j*2))),console.assert(a.length==5,a),
+		console.assert(a[0]==0,a[0]),console.assert(a[1]==12,a[1]),console.assert(a[2]==24,a[2]))
 	const filter=async function*(l,f){for await(const i of l){if(f(i))yield i}}
-	const testFilter=runTest&&await logTest(filter(take(numbers(),11),c=>c%2==0))
+	const logTest=async l=>{for await(const i of l)console.log(i)}
+	const testFilter=ignoreTest||await logTest(filter(take(numbers(),11),c=>c%2==0))
 	const filterOutUnfedineds=async function*(l){yield*filter(l,i=>i!=undefined)}
-	const testFilterUndefineds=runTest&&await logTest(filterOutUnfedineds(map(take(numbers(),11),c=>c%2==0?`双数：${c}！`:undefined)))
+	const testFilterUndefineds=ignoreTest||await logTest(filterOutUnfedineds(map(take(numbers(),11),c=>c%2==0?`双数：${c}！`:undefined)))
 	///@deprecated remomend to use filterUndedineds explicitly, 这行是留下备忘、作参考的
 	const collect=async function*(a,f){yield*filterOutUnfedineds(map(a,f))}
-	const testCollect=runTest&&await logTest(collect(take(numbers(),11),c=>c%2==0?`双数：${c}！`:undefined))
+	const testCollect=ignoreTest||await logTest(collect(take(numbers(),11),c=>c%2==0?`双数：${c}！`:undefined))
 	///scan with state, like F# Seq.scan.
 	///@deprecated 实际用到的不是这条，白写了……还是留下备忘，作参考
 	const reduce=async function*(l,f,initial=0){let memory=initial;for await(const i of l){const[r,state]=f(i,memory);memory=state;yield r}}
-	const testReduce=runTest&&await logTest(reduce(take(numbers(),11),(i,s)=>[i+s,i+s]))
+	const testReduce=ignoreTest||await logTest(reduce(take(numbers(),11),(i,s)=>[i+s,i+s]))
 		
 	///[流]模组，命名参考F#的STREAM，概念可能也一致，代码上没有参考（并不是不想参考，只是先自己写写看）
 	///流在内部管理一个异步迭代
@@ -114,19 +141,21 @@ const asyncIterator=(()=>{
 		//}
 		///似乎`setTimeout`就是异步的，区别是Promise可以await，setTimeout不能
 		const promiseTimeout=(delay=1e3,f=()=>{})=>new Promise((resolve,reject)=>setTimeout(()=>resolve(f()),delay))
-		runTest=false
-		const testPromisedTimeout=runTest&&console.log(await promiseTimeout(1e3,()=>"delay returned"))
+		const testPromisedTimeout=ignoreTest||console.log(await promiseTimeout(1e3,()=>"delay returned"))
 		const tryDelayYieldNumbersOld=async function*(interval=1e3){
 			for await(const i of tryRecursive())yield await promiseTimeout(interval,()=>i)}
 		const tryDelayYieldNumbers=async function*(interval=1e3){
 			for await(const i of tryRecursive())(await promiseTimeout(interval),yield i)}
-		runTest=true
-		const testDelayYieldNumbers=runTest&&await logTest(take(tryDelayYieldNumbers(),5))
-		const testDelayYieldNumbers_Resuming=runTest&&(()=>{
+		const testDelayYieldNumbers=ignoreTest||await logTest(take(tryDelayYieldNumbers(3e3),5))
+		const tryIntervaledYieldingNumbers=async function*(interval=1e3){
+			for await(const i of tryRecursive())(yield i,await promiseTimeout(interval))}
+		ignoreTest=false
+		const testIntervaledYieldingNumbers=ignoreTest||await logTest(take(tryIntervaledYieldingNumbers(3e3),5))
+		const testDelayYieldNumbers_Resuming=ignoreTest||(()=>{
 			const a=tryDelayYieldNumbers(8e2)
 			for(i=3;i--;i>0)console.log(a.next().value)
 			for(i=4;i--;i>0)console.log(a.next().value)})()
-		const testDelayYieldNumbers_Resuming_NotFitting_Failed=runTest&&(async()=>{
+		const testDelayYieldNumbers_Resuming_NotFitting_Failed=ignoreTest||(async()=>{
 			const a=tryDelayYieldNumbers(6e2)
 			let m=[],endOn=Date.now()+3e3
 			while(Date.now()<endOn)m.push((await a.next()).value) ///3/.6=5
@@ -154,7 +183,7 @@ const asyncIterator=(()=>{
 			while(Date.now()<endOn)m.push((await a.next()).value) ///5.4/.6=9
 			console.log(m)})()
 		///对咯！
-		const testPromiseRace=runTest&&(async()=>{
+		const testPromiseRace=ignoreTest||(async()=>{
 			const a=tryDelayYieldNumbers(6e3)
 			let pause,promiseToPause=new Promise(resolve=>{pause=resolve})
 			console.trace(await Promise.race([a.next(),promiseToPause]))
@@ -165,7 +194,7 @@ const asyncIterator=(()=>{
 		////JS pause yield
 		////JS yield rejected again
 		////JS promise rejected again
-		const testDelayYieldNumbers_PausingResumingWithPromiseRace=runTest&&(async()=>{
+		const testDelayYieldNumbers_PausingResumingWithPromiseRace=ignoreTest||(async()=>{
 			const a=tryDelayYieldNumbers(6e2)
 			let pause,promiseToPause=new Promise(resolve=>{pause=resolve})
 			setTimeout(pause,3e3)
@@ -205,7 +234,7 @@ const asyncIterator=(()=>{
 				m=[]
 			}
 		}
-		const testTryRearrange=runTest&&await logTest(take(tryRearrange(),5))
+		const testTryRearrange=ignoreTest||await logTest(take(tryRearrange(),5))
 		const tryRearrange2=async function*(){
 			var m=[];
 			(async()=>{for await(const i of tryDelayYieldNumbers())m.push(i)})()
@@ -215,7 +244,7 @@ const asyncIterator=(()=>{
 				m=[]
 			}
 		}
-		const testTryRearrange2=runTest&&await logTest(take(tryRearrange2(),5))
+		const testTryRearrange2=ignoreTest||await logTest(take(tryRearrange2(),5))
 		///@deprecated “中断”迭代时会导致生成器关闭的问题
 		const preloadThroughIterate=l=>{
 			const m=[];let toBreak=false
@@ -228,7 +257,7 @@ const asyncIterator=(()=>{
 		///大量查询也没有找到close之后再open的方法，
 		///也提了问题：https://stackoverflow.com/questions/55276664/how-to-reopen-asynciterator-after-broke-a-for-await-loop
 		///这可能神作了……可能有很多涉及到的函数得重写一下
-		const testMultipleLoops=runTest&&(async()=>{
+		const testMultipleLoops=ignoreTest||(async()=>{
 			const l=tryDelayYieldNumbers()
 			let count=3
 			for await(const i of l){if(count-->0)console.log(i);else break}
@@ -243,7 +272,7 @@ const asyncIterator=(()=>{
 			;(async()=>{while(!breakup){m.push((await l.next()).value)}})()
 			return()=>(breakup=true,m)
 		}
-		const testPreload=runTest&&console.log(await promiseTimeout(3e3,preload(tryDelayYieldNumbers())))
+		const testPreload=ignoreTest||console.log(await promiseTimeout(3e3,preload(tryDelayYieldNumbers())))
 		const tryRearrange3=async function*(){
 			const a=tryDelayYieldNumbers()
 			console.log(1)
@@ -253,13 +282,12 @@ const asyncIterator=(()=>{
 			console.log(1)
 			yield(await promiseTimeout(1e4,preload(a)))
 		}
-		const testTryRearrange3=runTest&&await logTest(tryRearrange3())
+		const testTryRearrange3=ignoreTest||await logTest(tryRearrange3())
 		const tryRearrange4=async function*(){
 			const a=tryDelayYieldNumbers(888)
 			while(true){yield(await promiseTimeout(3e3,preload(a)))}}
 		///TODO:当前问题：每一组都会跳一个
 		///要改下生成器，等待和`yield`不能一个操作
-		const testTryRearrange4=runTest&&await logTest(tryRearrange4())
+		const testTryRearrange4=ignoreTest||await logTest(tryRearrange4())
 	//})()
 })()
-const tryDelayYieldNumbers_YieldingFirst=(()=>{})()
