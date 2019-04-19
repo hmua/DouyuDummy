@@ -61,21 +61,21 @@ const asyncIterator=(()=>{
 			//Promise {<resolved>: {…}} ///**异步生成器的每个`next()`得到的是Promise**
 			})()
 	})()
-	var ignoreTest=true
+	var skipTests=true
 	///发现了什么？对不是async函数也可以await，就是说处理异步迭代的代码可以直接处理非异步的
 	///那是不是**所有非异步代码都直接是异步的**呢？？
 	///所以可能要把完全没必要异步的函数重写成非异步的
 	const numbers=(()=>{
 		const recursive=function*(i=0)/*递归*/{yield i++;yield*recursive(i)}
 		///经过测试迭代比递归快很多，大概只用了十几分之一时间，可能是因为优先权
-		const testTryRecursive=ignoreTest||(a=recursive(),
+		const testTryRecursive=skipTests||(a=recursive(),
 			b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:0,done:false}),b),
 			b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:1,done:false}),b),
 			b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:2,done:false}),b),
 			b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:3,done:false}),b),
 			b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:4,done:false}),b))
 		const iterate=function*()/*迭代*/{i=0;while(true)yield i++} //需要特别注意外层不能有同名i的变量！
-		const testTryIterate=ignoreTest||(a=iterate(),
+		const testTryIterate=skipTests||(a=iterate(),
 			b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:0,done:false}),b),
 			b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:1,done:false}),b),
 			b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:2,done:false}),b),
@@ -88,37 +88,44 @@ const asyncIterator=(()=>{
 	const take=async function*(l,count){for(let i=0;i<count;i++)yield(await l.next()).value}
 	///**调用异步函数时，不管这个被调用到的函数里面是否await了，如果调用的函数需要等被调用的函数的话，一定要在调用函数中写await**
 	///还是刚刚理解到这一点……
-	const testTake=ignoreTest||(a=take(numbers(),5),
-		b=(await a.next()),console.assert(JSON.stringify(b)==JSON.stringify({value:0,done:false}),b),
-		b=(await a.next()),console.assert(JSON.stringify(b)==JSON.stringify({value:1,done:false}),b),
-		b=(await a.next()),console.assert(JSON.stringify(b)==JSON.stringify({value:2,done:false}),b),
-		b=(await a.next()),console.assert(JSON.stringify(b)==JSON.stringify({value:3,done:false}),b),
-		b=(await a.next()),console.assert(JSON.stringify(b)==JSON.stringify({value:4,done:false}),b),
-		b=(await a.next()),console.assert(JSON.stringify(b)==JSON.stringify({value:undefined,done:true}),b),
-		b=(await a.next()),console.assert(JSON.stringify(b)==JSON.stringify({value:undefined,done:true}),b),
-		b=(await a.next()),console.assert(b.done!=false),b)
+	const testTake=skipTests||(a=take(numbers(),5),
+		b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:0,done:false}),b),
+		b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:1,done:false}),b),
+		b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:2,done:false}),b),
+		b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:3,done:false}),b),
+		b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:4,done:false}),b),
+		b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:undefined,done:true}),b),
+		b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:undefined,done:true}),b),
+		b=await a.next(),console.assert(b.done!=false),b)
 	
 	const map=async function*(l,f,i=0){const a=await l.next();a.done||(yield f(a.value,i),yield*map(l,f,++i))}
-	const testMap=ignoreTest||(a=(map(numbers(),(i,j)=>[i*11,j*222])),
-		b=(await a.next()),console.assert(JSON.stringify(b)==JSON.stringify({value:[0,0],done:false}),b),
-		b=(await a.next()),console.assert(JSON.stringify(b)==JSON.stringify({value:[11,222],done:false}),b),
-		b=(await a.next()),console.assert(JSON.stringify(b)==JSON.stringify({value:[22,444],done:false}),b))
+	const testMap=skipTests||(a=(map(numbers(),(i,j)=>[i*11,j*222])),
+		b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:[0,0],done:false}),b),
+		b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:[11,222],done:false}),b),
+		b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:[22,444],done:false}),b))
 	//const iter=async function*(l,f){for await(const i of l)f(i)}
 	const iter=async function(l,f,i=0){const a=await l.next();a.done||(f(a.value,i),await iter(l,f,++i))}
-	const testIter=ignoreTest||(a=[],(await iter(take(numbers(),5),(i,j)=>a.push(i*10+j*2))),console.assert(a.length==5,a),
+	const testIter=skipTests||(a=[],(await iter(take(numbers(),5),(i,j)=>a.push(i*10+j*2))),console.assert(a.length==5,a),
 		console.assert(a[0]==0,a[0]),console.assert(a[1]==12,a[1]),console.assert(a[2]==24,a[2]))
-	const filter=async function*(l,f){for await(const i of l){if(f(i))yield i}}
+	const filter=(()=>{const f2=async function*(l,f,i=0){for await(const j of l){if(f(j,i))yield j}};return(l,f)=>f2(l,f)})()
+	const testFilter=skipTests||(a=filter(numbers(),c=>c%2==0),b=(await a.next()).value,console.assert(b==0,b),
+		b=(await a.next()).value,console.assert(b==2,b),b=(await a.next()).value,console.assert(b==4,b))
+	const skip=(a,l=1)=>l<1?a:(a.next(),skip(a,--l))
+	const testSkip=skipTests||(
+		b=await skip(numbers(),3).next(),console.assert(JSON.stringify(b)==JSON.stringify({value:3,done:false}),b),
+		b=await skip(numbers(),13).next(),console.assert(JSON.stringify(b)==JSON.stringify({value:13,done:false}),b),
+		b=await skip(numbers(),23).next(),console.assert(JSON.stringify(b)==JSON.stringify({value:23,done:false}),b))
+
 	const logTest=async l=>{for await(const i of l)console.log(i)}
-	const testFilter=ignoreTest||await logTest(filter(take(numbers(),11),c=>c%2==0))
 	const filterOutUnfedineds=async function*(l){yield*filter(l,i=>i!=undefined)}
-	const testFilterUndefineds=ignoreTest||await logTest(filterOutUnfedineds(map(take(numbers(),11),c=>c%2==0?`双数：${c}！`:undefined)))
+	const testFilterUndefineds=skipTests||await logTest(filterOutUnfedineds(map(take(numbers(),11),c=>c%2==0?`双数：${c}！`:undefined)))
 	///@deprecated remomend to use filterUndedineds explicitly, 这行是留下备忘、作参考的
 	const collect=async function*(a,f){yield*filterOutUnfedineds(map(a,f))}
-	const testCollect=ignoreTest||await logTest(collect(take(numbers(),11),c=>c%2==0?`双数：${c}！`:undefined))
+	const testCollect=skipTests||await logTest(collect(take(numbers(),11),c=>c%2==0?`双数：${c}！`:undefined))
 	///scan with state, like F# Seq.scan.
 	///@deprecated 实际用到的不是这条，白写了……还是留下备忘，作参考
 	const reduce=async function*(l,f,initial=0){let memory=initial;for await(const i of l){const[r,state]=f(i,memory);memory=state;yield r}}
-	const testReduce=ignoreTest||await logTest(reduce(take(numbers(),11),(i,s)=>[i+s,i+s]))
+	const testReduce=skipTests||await logTest(reduce(take(numbers(),11),(i,s)=>[i+s,i+s]))
 		
 	///[流]模组，命名参考F#的STREAM，概念可能也一致，代码上没有参考（并不是不想参考，只是先自己写写看）
 	///流在内部管理一个异步迭代
@@ -140,23 +147,37 @@ const asyncIterator=(()=>{
 		//	}
 		//}
 		///似乎`setTimeout`就是异步的，区别是Promise可以await，setTimeout不能
-		const promiseTimeout=(delay=1e3,f=()=>{})=>new Promise((resolve,reject)=>setTimeout(()=>resolve(f()),delay))
-		const testPromisedTimeout=ignoreTest||console.log(await promiseTimeout(1e3,()=>"delay returned"))
+		const timeoutPromise=(delay=1e3,f=()=>{})=>new Promise((resolve,reject)=>setTimeout(()=>resolve(f()),delay))
+		const testTimeoutPromise=skipTests||(time=Date.now(),finishTime=Date.now(),
+			await timeoutPromise(1e3,()=>finishTime=Date.now()),
+			a=finishTime-time-1e3,console.assert(a<10,a))
 		const tryDelayYieldNumbersOld=async function*(interval=1e3){
-			for await(const i of tryRecursive())yield await promiseTimeout(interval,()=>i)}
+			for await(const i of numbers())yield await timeoutPromise(interval,()=>i)}
+		///TODO: 尝试先yield，后等待
 		const tryDelayYieldNumbers=async function*(interval=1e3){
-			for await(const i of tryRecursive())(await promiseTimeout(interval),yield i)}
-		const testDelayYieldNumbers=ignoreTest||await logTest(take(tryDelayYieldNumbers(3e3),5))
+			for await(const i of numbers())(await timeoutPromise(interval),yield i)}
+		const testDelayYieldNumbers=skipTests||(a=tryDelayYieldNumbers(),
+			b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:0,done:false}),b),
+			b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:1,done:false}),b),
+			b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:2,done:false}),b))
 		const tryIntervaledYieldingNumbers=async function*(interval=1e3){
-			for await(const i of tryRecursive())(yield i,await promiseTimeout(interval))}
-		ignoreTest=false
-		const testIntervaledYieldingNumbers=ignoreTest||await logTest(take(tryIntervaledYieldingNumbers(3e3),5))
-		const testDelayYieldNumbers_Resuming=ignoreTest||(()=>{
-			const a=tryDelayYieldNumbers(8e2)
-			for(i=3;i--;i>0)console.log(a.next().value)
-			for(i=4;i--;i>0)console.log(a.next().value)})()
-		const testDelayYieldNumbers_Resuming_NotFitting_Failed=ignoreTest||(async()=>{
-			const a=tryDelayYieldNumbers(6e2)
+			for await(const i of numbers())(yield i,await timeoutPromise(interval))}
+		const testIntervaledYieldingNumbers=skipTests||(interval=3e3,l=tryIntervaledYieldingNumbers(interval),
+			a=await l.next(),console.assert(JSON.stringify(a)==JSON.stringify({value:0,done:false}),a),
+			time=Date.now(),
+			a=await l.next(),console.assert(JSON.stringify(a)==JSON.stringify({value:1,done:false}),a),
+			c=Date.now()-time-interval,console.assert(c<10,c),time=Date.now(),
+			a=await l.next(),console.assert(JSON.stringify(a)==JSON.stringify({value:2,done:false}),a),
+			c=Date.now()-time-interval,console.assert(c<10,c))
+		const testDelayYieldNumbers_Resuming=skipTests||(()=>{
+			const a=tryIntervaledYieldingNumbers(8e2),b=[]
+			for(i=3;i--;i>0)b.push(a.next().value)
+			console.assert(b.length==3,b.length)
+			for(i=4;i--;i>0)b.push(a.next().value)
+			console.assert(b.length==7,b.length)})()
+		var skipTests=false
+		const testDelayYieldNumbers_Resuming_NotFitting_Failed=skipTests||(async()=>{
+			const a=tryIntervaledYieldingNumbers(6e2)
 			let m=[],endOn=Date.now()+3e3
 			while(Date.now()<endOn)m.push((await a.next()).value) ///3/.6=5
 			console.log(m)
@@ -176,14 +197,20 @@ const asyncIterator=(()=>{
 			///八、应该比较容易实现的方式是做一个纯粹占时间的yield，再yield实际内容
 			///- “When generator yields, it is paused, until iterator calls next() on it. Then the generator resumes the execution, until it yields again”[https://stackoverflow.com/a/45240956/5975828]
 			///-	还是会有问题……实际（例如弹幕）是**不能预知等待时间的！**那要怎样yield等待时间？
-			///九、或者可能就颠倒一下等待和yield数据？
+			///九、或者可能就颠倒一下等待和yield数据？——并没有分别，每次next时都变成先等待后yield
+			///十、每次tick时看一下是否在接收，如果没有先放一层cache里
+			///十一（汗）、七的基础上换成reject
+			///十二、参考八这句话：“When generator yields, it is paused, until iterator calls next() on it. Then the generator resumes the execution, until it yields again”[https://stackoverflow.com/a/45240956/5975828]
+			///- 关键是什么时候“要”，而不是什么时候“有”
+			///-	所以应该内部一直寄存，外部调next时就刷寄存
 			while(Date.now()<endOn)m.push((await a.next()).value) ///4/.6=6...4 本应执行6次,实际7次
 			console.log(m)
 			m=[],endOn=Date.now()+5e3
 			while(Date.now()<endOn)m.push((await a.next()).value) ///5.4/.6=9
 			console.log(m)})()
+		console.log("finished")
 		///对咯！
-		const testPromiseRace=ignoreTest||(async()=>{
+		const testPromiseRace=skipTests||(async()=>{
 			const a=tryDelayYieldNumbers(6e3)
 			let pause,promiseToPause=new Promise(resolve=>{pause=resolve})
 			console.trace(await Promise.race([a.next(),promiseToPause]))
@@ -194,7 +221,7 @@ const asyncIterator=(()=>{
 		////JS pause yield
 		////JS yield rejected again
 		////JS promise rejected again
-		const testDelayYieldNumbers_PausingResumingWithPromiseRace=ignoreTest||(async()=>{
+		const testDelayYieldNumbers_PausingResumingWithPromiseRace=skipTests||(async()=>{
 			const a=tryDelayYieldNumbers(6e2)
 			let pause,promiseToPause=new Promise(resolve=>{pause=resolve})
 			setTimeout(pause,3e3)
@@ -229,22 +256,22 @@ const asyncIterator=(()=>{
 			var m=[];
 			(async()=>{for await(const i of tryDelayYieldNumbers())m.push(i)})()
 			for await(const i of tryRecursive()){
-				const result=await promiseTimeout(3000)
+				const result=await timeoutPromise(3000)
 				yield m
 				m=[]
 			}
 		}
-		const testTryRearrange=ignoreTest||await logTest(take(tryRearrange(),5))
+		const testTryRearrange=skipTests||await logTest(take(tryRearrange(),5))
 		const tryRearrange2=async function*(){
 			var m=[];
 			(async()=>{for await(const i of tryDelayYieldNumbers())m.push(i)})()
 			while(true){
-				await promiseTimeout(3000)
+				await timeoutPromise(3000)
 				yield m
 				m=[]
 			}
 		}
-		const testTryRearrange2=ignoreTest||await logTest(take(tryRearrange2(),5))
+		const testTryRearrange2=skipTests||await logTest(take(tryRearrange2(),5))
 		///@deprecated “中断”迭代时会导致生成器关闭的问题
 		const preloadThroughIterate=l=>{
 			const m=[];let toBreak=false
@@ -257,7 +284,7 @@ const asyncIterator=(()=>{
 		///大量查询也没有找到close之后再open的方法，
 		///也提了问题：https://stackoverflow.com/questions/55276664/how-to-reopen-asynciterator-after-broke-a-for-await-loop
 		///这可能神作了……可能有很多涉及到的函数得重写一下
-		const testMultipleLoops=ignoreTest||(async()=>{
+		const testMultipleLoops=skipTests||(async()=>{
 			const l=tryDelayYieldNumbers()
 			let count=3
 			for await(const i of l){if(count-->0)console.log(i);else break}
@@ -272,22 +299,22 @@ const asyncIterator=(()=>{
 			;(async()=>{while(!breakup){m.push((await l.next()).value)}})()
 			return()=>(breakup=true,m)
 		}
-		const testPreload=ignoreTest||console.log(await promiseTimeout(3e3,preload(tryDelayYieldNumbers())))
+		const testPreload=skipTests||console.log(await timeoutPromise(3e3,preload(tryDelayYieldNumbers())))
 		const tryRearrange3=async function*(){
 			const a=tryDelayYieldNumbers()
 			console.log(1)
-			yield(await promiseTimeout(1e4,preload(a)))
+			yield(await timeoutPromise(1e4,preload(a)))
 			console.log(1)
-			yield(await promiseTimeout(1e4,preload(a)))
+			yield(await timeoutPromise(1e4,preload(a)))
 			console.log(1)
-			yield(await promiseTimeout(1e4,preload(a)))
+			yield(await timeoutPromise(1e4,preload(a)))
 		}
-		const testTryRearrange3=ignoreTest||await logTest(tryRearrange3())
+		const testTryRearrange3=skipTests||await logTest(tryRearrange3())
 		const tryRearrange4=async function*(){
 			const a=tryDelayYieldNumbers(888)
-			while(true){yield(await promiseTimeout(3e3,preload(a)))}}
+			while(true){yield(await timeoutPromise(3e3,preload(a)))}}
 		///TODO:当前问题：每一组都会跳一个
 		///要改下生成器，等待和`yield`不能一个操作
-		const testTryRearrange4=ignoreTest||await logTest(tryRearrange4())
+		const testTryRearrange4=skipTests||await logTest(tryRearrange4())
 	//})()
 })()
