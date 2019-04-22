@@ -182,27 +182,27 @@ const asyncIterator=(()=>{
 			console.log(m)
 			m=[],endOn=Date.now()+4e3
 			///问题在这里产生了,即使等待时间已经过了,最后一次`await a.next()`仍然会被等待完成,要可以暂停当前await,下次再继续
-			///大致有几个思路，1、先看看是否有内建的暂停/继续方法——查了一下，是没有的
-			///2、或许也可以把等待和yield分开执行；
-			///3、到时间时直接替换M，这条看起来可行性最好，但不确定会不会有对M的引用问题；
-			///4、在while里通过setTimeout来break
-			///5、next()之前检查是否已经超时，如果超时则break，并立即在下个迭代中yield，此方法扩展性不好
-			///6、yield时如果已经超时了，暂存最后一个，下次yield
-			///7、超时作为一个Promise，查询发现Promise有个rase函数，这条看来最靠谱，应该可以暂停，但不知道能否继续
+			///大致有几个思路，1. 先看看是否有内建的暂停/继续方法——查了一下，是没有的
+			///2. 或许也可以把等待和yield分开执行；
+			///3. 到时间时直接替换M，这条看起来可行性最好，但不确定会不会有对M的引用问题；
+			///4. 在while里通过setTimeout来break
+			///5. next()之前检查是否已经超时，如果超时则break，并立即在下个迭代中yield，此方法扩展性不好
+			///6. yield时如果已经超时了，暂存最后一个，下次yield
+			///7. 超时作为一个Promise，查询发现Promise有个rase函数，这条看来最靠谱，应该可以暂停，但不知道能否继续
 			///- 现在遇到的问题是for await asynchronous generator出来的不是Promise！！
 			///- 这就引申到一个有趣的问题：**async** generator还是generator with `next()` returns a Promise？两者会有什么区别吗？
 			///	*测试发现这两个是一个东西*
 			///- 此方案的问题是Promise rase不能自动reject，需要显性操作reject
-			///8、应该比较容易实现的方式是做一个纯粹占时间的yield，再yield实际内容
+			///8. 应该比较容易实现的方式是做一个纯粹占时间的yield，再yield实际内容
 			///- “When generator yields, it is paused, until iterator calls next() on it. Then the generator resumes the execution, until it yields again”[https://stackoverflow.com/a/45240956/5975828]
 			///-	还是会有问题……实际（例如弹幕）是**不能预知等待时间的！**那要怎样yield等待时间？
-			///9、或者可能就颠倒一下等待和yield数据？——并没有分别，每次next时都变成先等待后yield
-			///10、每次tick时看一下是否在接收，如果没有先放一层cache里
-			///11、（汗）七的基础上换成reject
-			///12、延续三，参考八这句话：“When generator yields, it is paused, until iterator calls next() on it. Then the generator resumes the execution, until it yields again”[https://stackoverflow.com/a/45240956/5975828]
+			///9. 或者可能就颠倒一下等待和yield数据？——并没有分别，每次next时都变成先等待后yield
+			///10. 每次tick时看一下是否在接收，如果没有先放一层cache里
+			///11. （汗）七的基础上换成reject
+			///12. （当前实现）延续三，参考八这句话：“When generator yields, it is paused, until iterator calls next() on it. Then the generator resumes the execution, until it yields again”[https://stackoverflow.com/a/45240956/5975828]
 			///- 关键是什么时候“要”，而不是什么时候“有”
 			///-	所以应该内部一直寄存，外部调next时就刷寄存
-			///13、还有个思路，每次next()给出下个next函数，同时开始缓存，到下个next被调用
+			///13. 还有个思路，每次next()给出下个next函数，同时开始缓存，到下个next被调用
 			while(Date.now()<endOn)m.push((await a.next()).value) ///4/.6=6...4 本应执行6次,实际7次
 			console.log(m)
 			m=[],endOn=Date.now()+5e3
@@ -333,15 +333,20 @@ const asyncIterator=(()=>{
 			b.next()///start up
 			return b
 		}
-		var skipTests=false
 		///对for await的支持没问题
 		///JS对async generator写法的支持似乎还是有点混乱……
 		///-	如果写f=()=>{...;return{next:async()=>...}}，在next之外的部分不能await
 		///-	如果写f=async()=>{...;return{next:async()=>...}}，for await前要先await f，比function*的调用要多写个await，不统一，略蛋疼
 		const testStreamizationSupprtsForawait=skipTests||(async()=>{
-			for await(i of streamization(tryIntervaledYieldingNumbers(6e2)))(console.log(i),await timeoutPromise(2e3))})()
-		const testStreamization=skipTests||(async()=>(a=streamization(tryIntervaledYieldingNumbers(6e2)),
-			setTimeout((async()=>(console.log("next"),console.log((await a.next()).value))),2e3),
-			setTimeout((async()=>(console.log("next"),console.log((await a.next()).value))),4e3)))()
+			for await(i of streamization(tryIntervaledYieldingNumbers(3e3)))(console.log(i),await timeoutPromise(1e3))})()
+		const testStreamization=skipTests||(async()=>(a=streamization(tryIntervaledYieldingNumbers(321)),
+			setTimeout((async()=>(console.log("next"),console.log((await a.next()).value))),1e3),
+			setTimeout((async()=>(console.log("next"),console.log((await a.next()).value))),2e3)))()
+		const testStreamizationNoLosing=skipTests||(async()=>{
+			const n=numbers()
+			for await(i of streamization(tryIntervaledYieldingNumbers(3e2))){
+				console.log(i)
+				for(j of i)console.assert(j==n.next().value)
+				await timeoutPromise(1e3)}})()
 	}
 })()
