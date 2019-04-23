@@ -180,6 +180,9 @@ var dummy=()=>{
 		///流就像一个水流，可以进行截断、积蓄、分流并流等
 		///考虑实际上只是给[异步迭代]增加一个preload（或者cache）函数，preload之后的操作其实都不必在流模组内
 		///所以就写在异步迭代下，哪些函数是流模组下的（哪些直接在异步迭代下）还会再推敲
+		///--
+		///实际实现preload方法失败了，现在是packaging打包，以后可以再试试preload
+		///暂存所有收到的，每不固定时间取一次
 		const packaging=(()=>{
 			//class __{constructor(a){this.iter=a}}
 			//const _=new __
