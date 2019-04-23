@@ -180,7 +180,7 @@ var dummy=()=>{
 		///流就像一个水流，可以进行截断、积蓄、分流并流等
 		///考虑实际上只是给[异步迭代]增加一个preload（或者cache）函数，preload之后的操作其实都不必在流模组内
 		///所以就写在异步迭代下，哪些函数是流模组下的（哪些直接在异步迭代下）还会再推敲
-		//const stream=(()=>{
+		const packaging=(()=>{
 			//class __{constructor(a){this.iter=a}}
 			//const _=new __
 			//const ofAsyncIterator=a=>_(a)
@@ -363,40 +363,71 @@ var dummy=()=>{
 			///TODO:当前问题：每一组都会跳一个
 			///要改下生成器，等待和`yield`不能一个操作
 			const testTryRearrange4=skipTests||await logTest(tryRearrange4())
-		//})()
-		///[思路12]实践，目前为止很顺利
-		const resolution12ThroughCaching=()=>{
-			const streamization=a=>{
-				///为什么要写两层？因为生成器没被第一次调用next之前是不会开始缓存的，所以要在外层调用一次next
-				const f=async function*(a){
-					let m=[]
-					console.log("after`m=[]`")
-					;(async()=>{for await(i of a)(console.count("before push"),m.push(i))})()
-					console.log("before`yield`")
-					yield
-					while(true)(console.count("yield"),a=m,m=[],yield a)
-				}
-				const b=f(a)
-				console.log("streamization background")
-				b.next()///start up
-				return b
-			}
-			///对for await的支持没问题
-			///JS对async generator写法的支持似乎还是有点混乱……
-			///-	如果写f=()=>{...;return{next:async()=>...}}，在next之外的部分不能await
-			///-	如果写f=async()=>{...;return{next:async()=>...}}，for await前要先await f，比function*的调用要多写个await，不统一，略蛋疼
-			const testStreamizationSupprtsForawait=skipTests||(async()=>{
-				for await(i of streamization(tryIntervaledYieldingNumbers(3e3)))(console.log(i),await timeoutPromise(1e3))})()
-			const testStreamization=skipTests||(async()=>(a=streamization(tryIntervaledYieldingNumbers(321)),
-				setTimeout((async()=>(console.log("next"),console.log((await a.next()).value))),1e3),
-				setTimeout((async()=>(console.log("next"),console.log((await a.next()).value))),2e3)))()
-			const testStreamizationNoLosing=skipTests||(async()=>{
-				const n=numbers()
-				for await(i of streamization(tryIntervaledYieldingNumbers(3e2))){
-					console.log(i)
-					for(j of i)console.assert(j==n.next().value)
-					await timeoutPromise(1e3)}})()
-		}
+			///[思路12]实践，目前为止很顺利
+			///TODO: 尝试写成递归
+			const resolution12ThroughCaching=(()=>{
+				///iterator方式的问题是第一次next()之前不能执行初始化代码，需要写个外层
+				const throughIterator=(()=>{
+					const packaging=a=>{
+						///为什么要写两层？因为iterator没被第一次调用next之前是不会开始缓存的，所以要在外层调用一次next
+						const f=async function*(a){
+							let m=[]
+							;(async()=>{for await(i of a)m.push(i)})()
+							yield
+							while(true)(a=m,m=[],yield a)
+						}
+						const b=f(a)
+						b.next()///start up
+						return b
+					}
+					const test=skipTests||(async()=>(a=packaging(tryIntervaledYieldingNumbers(321)),
+						setTimeout((async()=>(console.log("next"),console.log((await a.next()).value))),1e3),
+						setTimeout((async()=>(console.log("next"),console.log((await a.next()).value))),3e3)))()
+					const testSupprtsForawait=skipTests||(async()=>{
+						for await(i of packaging(tryIntervaledYieldingNumbers(3e2)))(console.log(i),await timeoutPromise(1e3))})()
+					const testNoLosing=skipTests||(async()=>{
+						const n=numbers()
+						for await(i of packaging(tryIntervaledYieldingNumbers(3e2))){
+							console.log(i)
+							for(j of i)console.assert(j==n.next().value)
+							await timeoutPromise(1e3)}})()
+					return packaging
+				})()
+				///generator方式只需要一层
+				const throughGenerator=(()=>{
+					const packaging=a=>{
+						let m=[]
+						;(async()=>{for await(i of a)m.push(i)})()
+						return{[Symbol.asyncIterator](){return{next:async()=>(a=m,m=[],{value:a,done:false})}}}
+						//还可以return`return`和throw函数
+						///- 参考[https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Generator#Methods]
+						///-	和[https://jakearchibald.com/2017/async-iterators-and-generators]最后
+					}
+					var skipTests=false
+					const test=skipTests||(async()=>(a=packaging(tryIntervaledYieldingNumbers(321))[Symbol.asyncIterator](),
+						setTimeout((async()=>(console.log("next"),console.log((await a.next()).value))),1e3),
+						setTimeout((async()=>(console.log("next"),console.log((await a.next()).value))),3e3)))()
+					///对for await的支持没问题
+					///JS对async generator写法的支持似乎还是有点混乱……
+					///-	如果写f=()=>{...;return{next:async()=>...}}，在next之外的部分不能await
+					///-	如果写f=async()=>{...;return{next:async()=>...}}，for await前要先await f，比function*的调用要多写个await，不统一，略蛋疼
+					const testSupprtsForawait=skipTests||(async()=>{
+						for await(i of packaging(tryIntervaledYieldingNumbers(3e2)))(console.log(i),await timeoutPromise(1e3))})()
+					const testNoLosing=skipTests||(async()=>{
+						const n=numbers()
+						for await(i of packaging(tryIntervaledYieldingNumbers(3e2))){
+							console.log(i)
+							for(j of i)console.assert(j==n.next().value)
+							await timeoutPromise(1e3)}})()
+					return packaging
+				})()
+				return throughIterator
+			})()
+			return resolution12ThroughCaching
+			///#### 学习记录
+			///本来以为最后一个yield之后是不能执行代码的，其实可以用try...finally来做
+			///-	从[https://jakearchibald.com/2017/async-iterators-and-generators/]中间部分看到的，感谢作者
+		})()
 	})()
 	const douyu={
 		gifts:(()=>{
@@ -864,6 +895,7 @@ var dummy=()=>{
 			return tickOnIdleDuration(a,()=>fakeNaturalTypingDelay(interval))
 		}
 		const autoAnswering=async function*(){
+			const receiving=room.chat.list
 			///一层adapter，接收消息，缓存，依优先权排序后放出
 			const prioritize=async function*(a){
 				const calc=a=>{
@@ -907,9 +939,12 @@ var dummy=()=>{
 				)
 				return a instanceof room.chat.Welcome?welcome(a):a instanceof room.chat.Gift?thanking(a):console.error(a)
 			}
-			for await(const a of prioritize(room.chat.list))yield answer(a[0])
-			//const z=(async()=>{for await(const a of room.chat.list)yield answer(a)})
-			//return prioritize(z)
+			///当应答时，每次发出一条应答消息后
+			///此时
+			///-	知道还有哪些等待应答的消息，依优先级排序来确定下一条，然后（模拟）输入应答文字
+			///-	此时就知道输入下一条消息所需要的时间，但——
+			///这个逻辑**都在本函数内**，调用本函数时只需要等待下一条消息的输入完成——甚至也许是用户手工输入的
+			for await(const a of prioritize(receiving))yield answer(a[0])
 		}
 		const ticks=prioritize(interval)
 		;(async()=>{for await(const _ of ticks)send(messages.next().value)})()
