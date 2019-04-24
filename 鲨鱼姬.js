@@ -185,7 +185,7 @@ var dummy=(()=>{
 		///--
 		///实际实现preload方法失败了，现在是packaging打包，以后可以再试试preload
 		///暂存所有收到的，每不固定时间取一次
-		const packaging=(()=>{
+		const preload=(()=>{
 			const testTimeoutPromise=skipTests||(async()=>(time=Date.now(),finishTime=Date.now(),
 				await timeoutPromise(1e3,()=>finishTime=Date.now()),
 				a=finishTime-time-1e3,console.assert(a<10,a)))()
@@ -389,8 +389,8 @@ var dummy=(()=>{
 						let m=[]
 						;(async()=>{for await(i of a)m.push(i)})()
 						return{[Symbol.asyncIterator](){return{next:async()=>(a=m,m=[],{value:a,done:false})}}}
-						//还可以return`return`和throw函数
-						///- 参考[https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Generator#Methods]
+						///还可以return`return`和throw函数
+						///-	参考[https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Generator#Methods]
 						///-	和[https://jakearchibald.com/2017/async-iterators-and-generators]最后
 					}
 					const test=skipTests||(async()=>(a=packaging(tryIntervaledYieldingNumbers(321))[Symbol.asyncIterator](),
@@ -417,7 +417,7 @@ var dummy=(()=>{
 			///本来以为最后一个yield之后是不能执行代码的，其实可以用try...finally来做
 			///-	从[https://jakearchibald.com/2017/async-iterators-and-generators/]中间部分看到的，感谢作者
 		})()
-		return{map,filter,collect,packaging,timeoutPromise}
+		return{map,filter,collect,preload,timeoutPromise}
 	})()
 	const douyu={
 		gifts:(()=>{
@@ -486,7 +486,7 @@ var dummy=(()=>{
 		let get=a=>document.getElementsByClassName(a)[0]
 		const chat=(()=>{
 			class Welcome{constructor(user){this.user=user}}
-			class Gift{constructor(user,[quantity,gift]){this.user=user;this.gift=gift,this.quantity=quantity,this.quantifier=gift.quantifier}}
+			class Gift{constructor(user,[quantity,gift]){this.user=user;this.gift=gift,this.quantity=quantity,this.quantifier=gift.quantifier,this.score=gift.score*quantity}}
 			const list=(()=>{
 				const list=get("Barrage-list")
 				const welcome=a=>{
@@ -505,8 +505,9 @@ var dummy=(()=>{
 						console.assert(b.className=="Barrage-text",b)
 						console.assert(b.innerText.trim().startsWith("赠送给主播"),b)
 						console.assert(b.firstElementChild.tagName=="IMG",b)
-						const parseGift=douyu.getGiftfromUrl
-						const make=a=>[a.lastElementChild.tagName=="SPAN"?Number(a.lastElementChild.innerText.substring(1)):1,parseGift(a.firstElementChild.src)]
+						const parseGift=image=>douyu.getGiftfromUrl(image.src)
+						const quantity=a=>a.lastElementChild.tagName=="SPAN"?Number(a.lastElementChild.innerText.substring(1)):1
+						const make=a=>[quantity(a),parseGift(a.firstElementChild)]
 						return new Gift(b.previousElementSibling.title,make(b))
 					}
 				}
@@ -841,7 +842,7 @@ var dummy=(()=>{
 			上面三层任何一层如果有云 就会遮住最下面一层
 			以此类推
 		*/
-		const prioritize=(interval)=>{
+		const prioritize=interval=>{
 			//const watchingCloudStack=(...levels)=>{for(const state of levels)if(state)return state}
 			//const testWatchingCloudStack=()=>console.assert(watchingCloudStack(false,undefined,"Bling!",false)=="Bling!")
 			const isSpeakCooling=()=>room.chat.speak.getRoomMsgCd()>0
@@ -884,22 +885,22 @@ var dummy=(()=>{
 			const a=checkFrequently(outOfControlConditions,1000/3)
 			return tickOnIdleDuration(a,()=>fakeNaturalTypingDelay(interval))
 		}
-		const autoAnswering=async function*(){
-			const receiving=room.chat.list
+		const autoAnswering=async function*(receiving){
 			const packaging=a=>{
-				let b=asyncIterator.packaging(a)
-				b=asyncIterator.map(b,async a=>{console.log(a.length);await asyncIterator.timeoutPromise(10e3);return a})
-				return asyncIterator.filter(b,a=>a.length>0)}
+				a=asyncIterator.preload(a)
+				a=asyncIterator.map(a,async a=>(console.log(`${("0"+Math.round(Date.now()/1e3)%60).slice(-2)}:${a.length}`),await asyncIterator.timeoutPromise(11e3),a))
+				return asyncIterator.filter(a,a=>a.length>0)}
 			///一层adapter，接收消息，缓存，依优先权排序后放出
-			const prioritize=async function*(a){
+			const prioritize=a=>{
 				const calc=a=>{
 					const thanking=a=>a.score
-					a instanceof room.chat.Welcome?0:a instanceof room.chat.Gift?thanking(a):console.error(a)}
-				const f=async function*(){
-					let data;
-					///load data
-					yield data.sort((a,b)=>a.priority-b.priority)}
-				for await(const i of a)yield[i[0],calc(i[0])]}
+					const r=a instanceof room.chat.Welcome?0:a instanceof room.chat.Gift?thanking(a):console.error(a)
+					console.log(r)
+					return r
+				}
+				return asyncIterator.map(a,a=>(a.sort((a,b)=>calc(a)-calc(b)),a.reverse(),a[0]))
+				//for await(const i of a)yield[i[0],calc(i[0])]
+			}
 			const answer=a=>{
 				const friends={
 					"Biu优秀饲养员kimi":"嫂子",
@@ -938,11 +939,11 @@ var dummy=(()=>{
 			///-	知道还有哪些等待应答的消息，依优先级排序来确定下一条，然后（模拟）输入应答文字
 			///-	此时就知道输入下一条消息所需要的时间，但——
 			///这个逻辑**都在本函数内**，调用本函数时只需要等待下一条消息的输入完成——甚至也许是用户手工输入的
-			for await(const a of prioritize(packaging(receiving)))yield answer(a[0])
+			for await(const a of prioritize(packaging(receiving)))yield answer(a)
 		}
 		const ticks=prioritize(interval)
 		;(async()=>{for await(const _ of ticks)send(messages.next().value)})()
-		;(async()=>{for await(const a of autoAnswering())send(a)})()
+		;(async()=>{for await(const a of autoAnswering(room.chat.list))send(a)})()
 		//;(async()=>{
 		//	const f=(i,s)=>{
 		//	const a=autoAnswering()
@@ -959,7 +960,6 @@ var dummy=(()=>{
 		//for await(const a of autoAnswering())console.log(a)
 	}
 	const messages=(()=>{
-		///꧁🌺꧁༺❤好听❤༻꧂💮♬•*♫♩✧꧁꧁༺❤超萌❤༻꧂꧂🏵️♪•*♫♩✧꧁༺❤可爱❤༻꧂🌸꧂
 		var range=(startAt=0,end)=>[...Array(end-startAt).keys()].map(i => i + startAt)
 		let map=iter.map
 		let interweave=function*(...sources){
@@ -1043,16 +1043,17 @@ var dummy=(()=>{
 				].concat(口播)),11*1000],
 				嫂子:[repeatSlogan(["我的嫂子美丽大方！倾国倾城！温柔如水！"]),22*1000],
 				户外:[repeatSlogan(["哎哟！圆圆姑娘正在准备，这就来啦！稍安勿躁啊大爷"]),40e3],
-				户外2:[repeatSlogan(["今天周三休息一天，各位明天一点相约这里，不见不散！"]),22*1e3],
+				户外2:[repeatSlogan(["今天周三休息一天，各位明天一点相约这里，不见不散！"]),44*1e3],
 				抽奖:[repeat(["#关注 感谢小李姐姐"]),500],
 				从军记:[interweave([repeat(从军记),从军记.length],[表情,5],[repeat(口播),口播.length],[表情,5]),44*1000],
 			},
 			公益:[repeatSlogan("鱼你同行，造梦公益！"),11*1000],
 			户外:[repeatSlogan(["秀秀在339直播间485503大家赶紧来！"]),44*1000],
 		}
+		///꧁🌺꧁༺❤好听❤༻꧂💮♬•*♫♩✧꧁꧁༺❤超萌❤༻꧂꧂🏵️♪•*♫♩✧꧁༺❤可爱❤༻꧂🌸꧂
 	})()
 	//enhanceControl()
-	batchSendMessage.apply(null,messages.雷哥.口播2)
+	batchSendMessage.apply(null,messages.表情)
 	const test=()=>{
 		room.chat.send.test()
 		messages.test()
