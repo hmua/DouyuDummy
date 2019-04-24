@@ -18,7 +18,7 @@
 - const f=(()=>{...})()强大，符合函数式风格，除了写法奇怪，还算不错
 - class啰嗦，并且**不能嵌套**，也是只能做数据
 */
-var dummy=()=>{
+var dummy=(()=>{
 	//const runTests=false ///写完之后发觉并没什么用……因为测试一般都是剪一段代码控制台运行，剪出的代码最重要是尽可能减少有依赖……
 	//const test=(f,force)=>{if(force||runTests)f()}
 	//const forceTest=f=>test(f,true)
@@ -136,7 +136,7 @@ var dummy=()=>{
 		const take=async function*(l,count){for(let i=0;i<count;i++)yield(await l.next()).value}
 		///**调用异步函数时，不管这个被调用到的函数里面是否await了，如果调用的函数需要等被调用的函数的话，一定要在调用函数中写await**
 		///还是刚刚理解到这一点……
-		const testTake=skipTests||(a=take(numbers(),5),
+		const testTake=skipTests||(async()=>(a=take(numbers(),5),
 			b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:0,done:false}),b),
 			b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:1,done:false}),b),
 			b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:2,done:false}),b),
@@ -144,37 +144,39 @@ var dummy=()=>{
 			b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:4,done:false}),b),
 			b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:undefined,done:true}),b),
 			b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:undefined,done:true}),b),
-			b=await a.next(),console.assert(b.done!=false),b)
+			b=await a.next(),console.assert(b.done!=false),b))()
 	
 		const map=async function*(l,f,i=0){const a=await l.next();a.done||(yield f(a.value,i),yield*map(l,f,++i))}
-		const testMap=skipTests||(a=(map(numbers(),(i,j)=>[i*11,j*222])),
+		const testMap=skipTests||(async()=>(a=(map(numbers(),(i,j)=>[i*11,j*222])),
 			b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:[0,0],done:false}),b),
 			b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:[11,222],done:false}),b),
-			b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:[22,444],done:false}),b))
+			b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:[22,444],done:false}),b)))
 		//const iter=async function*(l,f){for await(const i of l)f(i)}
 		const iter=async function(l,f,i=0){const a=await l.next();a.done||(f(a.value,i),await iter(l,f,++i))}
-		const testIter=skipTests||(a=[],(await iter(take(numbers(),5),(i,j)=>a.push(i*10+j*2))),console.assert(a.length==5,a),
-			console.assert(a[0]==0,a[0]),console.assert(a[1]==12,a[1]),console.assert(a[2]==24,a[2]))
+		const testIter=skipTests||(async()=>(a=[],(await iter(take(numbers(),5),(i,j)=>a.push(i*10+j*2))),console.assert(a.length==5,a),
+			console.assert(a[0]==0,a[0]),console.assert(a[1]==12,a[1]),console.assert(a[2]==24,a[2])))()
 		const filter=(()=>{const f2=async function*(l,f,i=0){for await(const j of l){if(f(j,i))yield j}};return(l,f)=>f2(l,f)})()
-		const testFilter=skipTests||(a=filter(numbers(),c=>c%2==0),b=(await a.next()).value,console.assert(b==0,b),
-			b=(await a.next()).value,console.assert(b==2,b),b=(await a.next()).value,console.assert(b==4,b))
+		const testFilter=skipTests||(async()=>(a=filter(numbers(),c=>c%2==0),b=(await a.next()).value,console.assert(b==0,b),
+			b=(await a.next()).value,console.assert(b==2,b),b=(await a.next()).value,console.assert(b==4,b)))()
 		const skip=(a,l=1)=>l<1?a:(a.next(),skip(a,--l))
-		const testSkip=skipTests||(
+		const testSkip=skipTests||(async()=>(
 			b=await skip(numbers(),3).next(),console.assert(JSON.stringify(b)==JSON.stringify({value:3,done:false}),b),
 			b=await skip(numbers(),13).next(),console.assert(JSON.stringify(b)==JSON.stringify({value:13,done:false}),b),
-			b=await skip(numbers(),23).next(),console.assert(JSON.stringify(b)==JSON.stringify({value:23,done:false}),b))
+			b=await skip(numbers(),23).next(),console.assert(JSON.stringify(b)==JSON.stringify({value:23,done:false}),b)))()
 
 		const logTest=async l=>{for await(const i of l)console.log(i)}
 		const filterOutUnfedineds=async function*(l){yield*filter(l,i=>i!=undefined)}
-		const testFilterUndefineds=skipTests||await logTest(filterOutUnfedineds(map(take(numbers(),11),c=>c%2==0?`双数：${c}！`:undefined)))
+		const testFilterUndefineds=skipTests||logTest(filterOutUnfedineds(map(take(numbers(),11),c=>c%2==0?`双数：${c}！`:undefined)))
 		///@deprecated remomend to use filterUndedineds explicitly, 这行是留下备忘、作参考的
 		const collect=async function*(a,f){yield*filterOutUnfedineds(map(a,f))}
-		const testCollect=skipTests||await logTest(collect(take(numbers(),11),c=>c%2==0?`双数：${c}！`:undefined))
+		const testCollect=skipTests||logTest(collect(take(numbers(),11),c=>c%2==0?`双数：${c}！`:undefined))
 		///scan with state, like F# Seq.scan.
 		///@deprecated 实际用到的不是这条，白写了……还是留下备忘，作参考
 		const reduce=async function*(l,f,initial=0){let memory=initial;for await(const i of l){const[r,state]=f(i,memory);memory=state;yield r}}
-		const testReduce=skipTests||await logTest(reduce(take(numbers(),11),(i,s)=>[i+s,i+s]))
+		const testReduce=skipTests||logTest(reduce(take(numbers(),11),(i,s)=>[i+s,i+s]))
 		
+		///似乎`setTimeout`就是异步的，区别是Promise可以await，setTimeout不能
+		const timeoutPromise=(delay=1e3,f=()=>{})=>new Promise((resolve,reject)=>setTimeout(()=>resolve(f()),delay))
 		///[流]模组，命名参考F#的STREAM，概念可能也一致，代码上没有参考（并不是不想参考，只是先自己写写看）
 		///流在内部管理一个异步迭代
 		///流就像一个水流，可以进行截断、积蓄、分流并流等
@@ -184,42 +186,27 @@ var dummy=()=>{
 		///实际实现preload方法失败了，现在是packaging打包，以后可以再试试preload
 		///暂存所有收到的，每不固定时间取一次
 		const packaging=(()=>{
-			//class __{constructor(a){this.iter=a}}
-			//const _=new __
-			//const ofAsyncIterator=a=>_(a)
-			//const testStreamOfAsyncIterator=()=>ofAsyncIterator()
-			//const intercept/*截流*/=(stream,pool)=>{
-			//	var m=[];
-			//	(async()=>{for await(const i of stream)m.push(i)})()
-			//	for await(const i of this.tryRecursive()){
-			//		const result=await this.asyncDelay(i,3000)
-			//		yield m
-			//		m=[]
-			//	}
-			//}
-			///似乎`setTimeout`就是异步的，区别是Promise可以await，setTimeout不能
-			const timeoutPromise=(delay=1e3,f=()=>{})=>new Promise((resolve,reject)=>setTimeout(()=>resolve(f()),delay))
-			const testTimeoutPromise=skipTests||(time=Date.now(),finishTime=Date.now(),
+			const testTimeoutPromise=skipTests||(async()=>(time=Date.now(),finishTime=Date.now(),
 				await timeoutPromise(1e3,()=>finishTime=Date.now()),
-				a=finishTime-time-1e3,console.assert(a<10,a))
+				a=finishTime-time-1e3,console.assert(a<10,a)))()
 			const tryDelayYieldNumbersOld=async function*(interval=1e3){
 				for await(const i of numbers())yield await timeoutPromise(interval,()=>i)}
 			///TODO: 尝试先yield，后等待
 			const tryDelayYieldNumbers=async function*(interval=1e3){
 				for await(const i of numbers())(await timeoutPromise(interval),yield i)}
-			const testDelayYieldNumbers=skipTests||(a=tryDelayYieldNumbers(),
+			const testDelayYieldNumbers=skipTests||(async()=>(a=tryDelayYieldNumbers(),
 				b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:0,done:false}),b),
 				b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:1,done:false}),b),
-				b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:2,done:false}),b))
+				b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:2,done:false}),b)))()
 			const tryIntervaledYieldingNumbers=async function*(interval=1e3){
 				for await(const i of numbers())(yield i,await timeoutPromise(interval))}
-			const testIntervaledYieldingNumbers=skipTests||(interval=3e3,l=tryIntervaledYieldingNumbers(interval),
+			const testIntervaledYieldingNumbers=skipTests||(async()=>(interval=3e3,l=tryIntervaledYieldingNumbers(interval),
 				a=await l.next(),console.assert(JSON.stringify(a)==JSON.stringify({value:0,done:false}),a),
 				time=Date.now(),
 				a=await l.next(),console.assert(JSON.stringify(a)==JSON.stringify({value:1,done:false}),a),
 				c=Date.now()-time-interval,console.assert(c<10,c),time=Date.now(),
 				a=await l.next(),console.assert(JSON.stringify(a)==JSON.stringify({value:2,done:false}),a),
-				c=Date.now()-time-interval,console.assert(c<10,c))
+				c=Date.now()-time-interval,console.assert(c<10,c)))()
 			const testDelayYieldNumbers_Resuming=skipTests||(()=>{
 				const a=tryIntervaledYieldingNumbers(8e2),b=[]
 				for(i=3;i--;i>0)b.push(a.next().value)
@@ -311,7 +298,7 @@ var dummy=()=>{
 					m=[]
 				}
 			}
-			const testTryRearrange=skipTests||await logTest(take(tryRearrange(),5))
+			const testTryRearrange=skipTests||logTest(take(tryRearrange(),5))
 			const tryRearrange2=async function*(){
 				var m=[];
 				(async()=>{for await(const i of tryDelayYieldNumbers())m.push(i)})()
@@ -321,7 +308,7 @@ var dummy=()=>{
 					m=[]
 				}
 			}
-			const testTryRearrange2=skipTests||await logTest(take(tryRearrange2(),5))
+			const testTryRearrange2=skipTests||logTest(take(tryRearrange2(),5))
 			///@deprecated “中断”迭代时会导致生成器关闭的问题
 			const preloadThroughIterate=l=>{
 				const m=[];let toBreak=false
@@ -349,7 +336,7 @@ var dummy=()=>{
 				;(async()=>{while(!breakup){m.push((await l.next()).value)}})()
 				return()=>(breakup=true,m)
 			}
-			const testPreload=skipTests||console.log(await timeoutPromise(3e3,preload(tryDelayYieldNumbers())))
+			const testPreload=skipTests||console.log(timeoutPromise(3e3,preload(tryDelayYieldNumbers())))
 			const tryRearrange3=async function*(){
 				const a=tryDelayYieldNumbers()
 				console.log(1)
@@ -359,13 +346,13 @@ var dummy=()=>{
 				console.log(1)
 				yield(await timeoutPromise(1e4,preload(a)))
 			}
-			const testTryRearrange3=skipTests||await logTest(tryRearrange3())
+			const testTryRearrange3=skipTests||logTest(tryRearrange3())
 			const tryRearrange4=async function*(){
 				const a=tryDelayYieldNumbers(888)
 				while(true){yield(await timeoutPromise(3e3,preload(a)))}}
 			///TODO:当前问题：每一组都会跳一个
 			///要改下生成器，等待和`yield`不能一个操作
-			const testTryRearrange4=skipTests||await logTest(tryRearrange4())
+			const testTryRearrange4=skipTests||logTest(tryRearrange4())
 			///[思路12]实践，目前为止很顺利
 			///TODO: 尝试写成递归
 			const resolution12ThroughCaching=(()=>{
@@ -406,7 +393,6 @@ var dummy=()=>{
 						///- 参考[https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Generator#Methods]
 						///-	和[https://jakearchibald.com/2017/async-iterators-and-generators]最后
 					}
-					var skipTests=false
 					const test=skipTests||(async()=>(a=packaging(tryIntervaledYieldingNumbers(321))[Symbol.asyncIterator](),
 						setTimeout((async()=>(console.log("next"),console.log((await a.next()).value))),1e3),
 						setTimeout((async()=>(console.log("next"),console.log((await a.next()).value))),3e3)))()
@@ -431,6 +417,7 @@ var dummy=()=>{
 			///本来以为最后一个yield之后是不能执行代码的，其实可以用try...finally来做
 			///-	从[https://jakearchibald.com/2017/async-iterators-and-generators/]中间部分看到的，感谢作者
 		})()
+		return{map,filter,collect,packaging,timeoutPromise}
 	})()
 	const douyu={
 		gifts:(()=>{
@@ -899,6 +886,10 @@ var dummy=()=>{
 		}
 		const autoAnswering=async function*(){
 			const receiving=room.chat.list
+			const packaging=a=>{
+				let b=asyncIterator.packaging(a)
+				b=asyncIterator.map(b,async a=>{console.log(a.length);await asyncIterator.timeoutPromise(10e3);return a})
+				return asyncIterator.filter(b,a=>a.length>0)}
 			///一层adapter，接收消息，缓存，依优先权排序后放出
 			const prioritize=async function*(a){
 				const calc=a=>{
@@ -908,7 +899,7 @@ var dummy=()=>{
 					let data;
 					///load data
 					yield data.sort((a,b)=>a.priority-b.priority)}
-				for await(const i of a)yield[i,calc(i)]}
+				for await(const i of a)yield[i[0],calc(i[0])]}
 			const answer=a=>{
 				const friends={
 					"Biu优秀饲养员kimi":"嫂子",
@@ -947,7 +938,7 @@ var dummy=()=>{
 			///-	知道还有哪些等待应答的消息，依优先级排序来确定下一条，然后（模拟）输入应答文字
 			///-	此时就知道输入下一条消息所需要的时间，但——
 			///这个逻辑**都在本函数内**，调用本函数时只需要等待下一条消息的输入完成——甚至也许是用户手工输入的
-			for await(const a of prioritize(receiving))yield answer(a[0])
+			for await(const a of prioritize(packaging(receiving)))yield answer(a[0])
 		}
 		const ticks=prioritize(interval)
 		;(async()=>{for await(const _ of ticks)send(messages.next().value)})()
@@ -968,6 +959,7 @@ var dummy=()=>{
 		//for await(const a of autoAnswering())console.log(a)
 	}
 	const messages=(()=>{
+		///꧁🌺꧁༺❤好听❤༻꧂💮♬•*♫♩✧꧁꧁༺❤超萌❤༻꧂꧂🏵️♪•*♫♩✧꧁༺❤可爱❤༻꧂🌸꧂
 		var range=(startAt=0,end)=>[...Array(end-startAt).keys()].map(i => i + startAt)
 		let map=iter.map
 		let interweave=function*(...sources){
@@ -1011,25 +1003,26 @@ var dummy=()=>{
 			"消失的JJ已完结",
 		])
 		let 口播=[
-			"新来的同学们点点关注·我是刚来斗鱼的新主播以后常驻·刚来斗鱼直播三天·感谢大家的礼物！",
-			"我是单机主机主播·帮忙点点关注·我会继续努力直播·不会停下脚步！",
-			"总有粉丝说我眼瞎智商低磨叽没脸皮·其实他们不懂我是胖帅牛皮强无敌！",
-			"从来斗鱼时每天直播十来个小时·下午五点到午时·希望大家多支持！",
-			"没办卡的同学办个卡·加入粉丝团里棒棒的·粉丝徽章六级可以变色·背包里的荧光棒不要吝啬！",
-			"刷礼物让你更嘚瑟·粉丝徽章十五级变橙色·可以进到房管群里乐一乐！",
-			"点点关注不会迷路·感谢各位新来同学的关注·谢谢大家·MUUA·MUUA·MUUA·MUUA·MUUA！",
+			"新来的同学们点点关注 我是刚来斗鱼的新主播以后常驻 刚来斗鱼直播三天 感谢大家的礼物",
+			"我是单机主机主播 帮忙点点关注 我会继续努力直播 不会停下脚步",
+			"总有粉丝说我 眼瞎智商低 磨叽没脸皮 其实他们不懂 我是胖帅牛B强无敌",
+			"从来斗鱼时每天直播十来个小时 下午一点到晚十点 希望大家多支持",
+			"没办卡的同学办个卡 加入粉丝团里棒棒的 粉丝徽章六级可以变色 背包里的荧光棒不要吝啬",
+			"刷礼物让你更嘚瑟 粉丝徽章十五级变橙色 可以进到房管群里乐一乐",
+			"点点关注不会迷路 感谢各位新来同学的关注 谢谢大家 MUUA！微博@好男人雷小哥",
 		]
 		let 从军记=[
-			"官方猫带雷狗蛋远征武装突袭三！路过同学点点关注不要错过！",
-			"武装突袭三是以真实、完整模拟军事行动为目的的大型多人在线角色扮演游戏",
+			"官方猫带雷狗蛋远征「武装突袭3」！路过同学点点关注不要错过！",
+			"「武装突袭3」是以真实、完整模拟规模军事行动为目的泛专业军事模拟游戏",
 			"喜欢的朋友可以今天结束后，优酷搜索“雷狗蛋从军记”观看大量好看的往期录像！"
 		]
 		return{
-			表情:[表情,33*1000],
+			表情:[表情,66*1000],
 			组合:[interweave([雷哥,3],[表情,11]),3*1000],
 			组合2:[interweave([表情,9],[数字,1]),3*1000],
 			雷哥:{
 				口播:[interweave([repeat(口播),口播.length],[表情,5]),22*1000],
+				口播2:[interweave([表情,5],[repeat(["欢迎来到雷哥的直播间！现在雷哥直播时间是下午一点到晚十点！点关注不会错过"]),1],[表情,5],[repeat(口播),口播.length]),22*1000],
 				舔狗:[repeat([
 					"劳驾兄弟我找综合游戏技术大师Biu雷哥！",
 					"是综合游戏技术大师Biu雷哥直播间吗？",
@@ -1049,19 +1042,20 @@ var dummy=()=>{
 					//"真是太黯然！太销魂了！"
 				].concat(口播)),11*1000],
 				嫂子:[repeatSlogan(["我的嫂子美丽大方！倾国倾城！温柔如水！"]),22*1000],
-				户外:[repeatSlogan(["大家好！今天不播游戏了，雷大爷生病住院，雷哥正在赶去医院的路上。同学们点点关注刷刷礼物，感谢大家的支持！"]),33*1000],
+				户外:[repeatSlogan(["哎哟！圆圆姑娘正在准备，这就来啦！稍安勿躁啊大爷"]),40e3],
+				户外2:[repeatSlogan(["今天周三休息一天，各位明天一点相约这里，不见不散！"]),22*1e3],
 				抽奖:[repeat(["#关注 感谢小李姐姐"]),500],
-				狗蛋从军记:[interweave([repeat(从军记),从军记.length],[表情,5],[repeat(口播),口播.length],[表情,5]),11*1000],
+				从军记:[interweave([repeat(从军记),从军记.length],[表情,5],[repeat(口播),口播.length],[表情,5]),44*1000],
 			},
 			公益:[repeatSlogan("鱼你同行，造梦公益！"),11*1000],
+			户外:[repeatSlogan(["秀秀在339直播间485503大家赶紧来！"]),44*1000],
 		}
 	})()
-	enhanceControl()
-	batchSendMessage.apply(null,messages.雷哥.户外)
+	//enhanceControl()
+	batchSendMessage.apply(null,messages.雷哥.口播2)
 	const test=()=>{
 		room.chat.send.test()
 		messages.test()
 	}
 	return{test}
-}
-dummy()
+})()
