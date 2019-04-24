@@ -446,34 +446,9 @@ var dummy=(()=>{
 			}
 			return Object.keys(a).map(k=>{const i=a[k];i.unshift(k);return new Gift(...i)})
 		})(),
-		giftsOriginData:{
-///可以开宝箱领的
-"https://gfs-op.douyucdn.cn/dygift/1606/344fe065475cc90728b7744818ffe2b5.gif?x-oss-process=image/format,webp":["只","弱鸡"], ///经验+2 亲密度+2
-"https://gfs-op.douyucdn.cn/dygift/1704/27c9b64d43d1726acbe9e256bc4f2c5d.gif?x-oss-process=image/format,webp":["只","小熊"], ///.1翅 1人民币=1鱼翅=1000鱼丸=10经验
-"https://gfs-op.douyucdn.cn/dygift/2018/11/29/42669592fba5a9c067614dee8feea7de.gif?x-oss-process=image/format,webp":["枚","赞"],
-"https://gfs-op.douyucdn.cn/dygift/1705/593454a87af9f5a0b0075ee96e6abebf.gif?x-oss-process=image/format,webp":["枚","赞"],
-"https://gfs-op.douyucdn.cn/dygift/1612/61414e3b96e9e6112ee6cdb8bc7f4f3a.gif?x-oss-process=image/format,webp":["枚","呵呵"],
-"https://gfs-op.douyucdn.cn/dygift/1612/ab8d2f5b9cb715c3b56fc803a79bc8db.gif?x-oss-process=image/format,webp":["枚","香吻"],
-"https://gfs-op.douyucdn.cn/dygift/1704/ab5248d6a26da27076613affb8f6e77e.gif?x-oss-process=image/format,webp":["枚","棒棒哒"],
-"https://gfs-op.douyucdn.cn/dygift/1705/c78bd03226f8cc00d60122bf9260490c.gif?x-oss-process=image/format,webp":["根","荧光棒"],
-"https://gfs-op.douyucdn.cn/dygift/2018/11/16/a1c5aafd104537d89ba1d2d5f8620ef2.png?x-oss-process=image/format,webp":["张","通行证"], ///车队通行证
-"https://gfs-op.douyucdn.cn/dygift/1704/c669ecfe9e550924163df2d5f35d074d.gif?x-oss-process=image/format,webp":["个","辣眼睛"],
-///付费的
-"https://gfs-op.douyucdn.cn/dygift/2018/11/27/296d39b7951a249d6f640ed58cfacb67.gif?x-oss-process=image/format,webp":["架","飞机"], ///100翅 各+1000
-"https://gfs-op.douyucdn.cn/dygift/2018/11/27/4388bdce84df1cb6965d592726ecf8b3.gif?x-oss-process=image/format,webp":["张","办卡"], ///6翅
-"https://gfs-op.douyucdn.cn/dygift/2018/12/26/45fbb13ed057bcb19e33137cf3f24ad5.gif?x-oss-process=image/format,webp":["支","小飞碟"], ///1翅
-"https://gfs-op.douyucdn.cn/dygift/2018/12/26/513e9396081c85f3c081675a0740e20b.png?x-oss-process=image/format,webp":["颗","幸运水晶"], ///.1翅 各+1
-"https://gfs-op.douyucdn.cn/dygift/2018/12/18/66e19302ad32726d602a04e38c5cc726.gif?x-oss-process=image/format,webp":["碗","鱼丸"], ///100鱼丸 各+1
-///抽奖的
-"https://gfs-op.douyucdn.cn/dygift/1808/f3e206359deffbdee0a0cdbccbab704b.gif?x-oss-process=image/format,webp":["张","太空卡"], ///太空旅行卡 ///6翅
-"https://gfs-op.douyucdn.cn/dygift/1808/d331dce3ee6817a2e89e78472749c49c.gif?x-oss-process=image/format,webp":["根","棒棒糖"], ///星空棒棒糖 ///1翅 贡献+10 经验+10 亲密度+10
-"https://gfs-op.douyucdn.cn/dygift/1808/5163e0b5c3d9b33cf2ab0ff9d02a0956.gif?x-oss-process=image/format,webp":["颗","小星星"], ///星星 ///.1翅 各+1
-		},
 		getGiftIdFromUrl:url=>(a=url.lastIndexOf("."),url.slice(url.lastIndexOf("/",a)+1,a)),
 		testGetGiftIdFromUrl:()=>(a=douyu.getGiftIdFromUrl("https://gfs-op.douyucdn.cn/dygift/1808/5163e0b5c3d9b33cf2ab0ff9d02a0956.gif?x-oss-process=image/format,webp")
 			,console.assert(a=="5163e0b5c3d9b33cf2ab0ff9d02a0956",a)),
-		//,testGetGiftIdFromUrl2:()=>{a=array.zip(douyu.gifts,douyu.giftsOriginData)
-		//	for(const[b,c]of a)console.assert(a==douyu.getGiftIdFromUrl(b))}
 		getGiftfromUrl:a=>(id=douyu.getGiftIdFromUrl(a),douyu.gifts.find(i=>i.id instanceof Array?i.id.includes(id):i.id==id)||
 			(console.error(a),{name:"礼物",quantifier:"个",score:Number.MAX_SAFE_INTEGER})),
 		testGetGiftfromUrl:()=>[
