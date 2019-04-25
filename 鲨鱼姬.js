@@ -1,10 +1,8 @@
 ///Encoding: UTF-8 without signature(BOM)
-///New-line char: ~~Unicode line separator (LS, \u2028)~~
-///	Windows CRLF
+///New-line char: Windows CRLF~~Unicode line separator (LS, \u2028)~~
 ///https://github.com/mnms/DouyuDummy
-/***以下代码除了极小部分特别说明的之外全都是原创
-欢迎引用和学习，但请至少注明引用自本处，也欢迎讨论**
-
+///以下代码除了极小部分特别说明的之外全都是原创，欢迎引用和学习，但请至少注明引用自本处，也欢迎讨论
+/*
 **Javascript除了没有类型检查这点极其蛋疼之外
 真的是越写越得劲儿！非常自由**
 
@@ -19,11 +17,6 @@
 - class啰嗦，并且**不能嵌套**，也是只能做数据
 */
 var dummy=(()=>{
-	//const runTests=false ///写完之后发觉并没什么用……因为测试一般都是剪一段代码控制台运行，剪出的代码最重要是尽可能减少有依赖……
-	//const test=(f,force)=>{if(force||runTests)f()}
-	//const forceTest=f=>test(f,true)
-	//test(()=>console.log("just test!"))
-	//forceTest(()=>console.log("a forced test!"),true)
 	///ES6 Iterators, RxJS, IxJS and the Async Iterators proposal https://blog.scottlogic.com/2016/06/29/es6-iterators.html
 	const array={
 		zip:(a,b)=>a.map((a,i) =>[a,b[i]])
@@ -1030,6 +1023,16 @@ var dummy=(()=>{
 				}
 				return{messages:{},answer}
 			})()
+ 				//	"哎呦小菲菲":"灰灰",	
+					//"至十五":"十五",	
+					//"两点一个竖":"竖心儿",	
+					//"Tb王小兔手作":"表姐",	
+					//"蚕蛹胖儿":"蚕胖儿",	
+					//"猪小小儒雅随和":"小小猪",	
+					//"翰墨音缘520":"音缘",	
+					//"安如香喵Kissing":"香喵",	
+					//"天地人脉 ":"天地",	
+					//"早睡早起520":"呼噜噜",
 			const id=room.id
 			return id==5095833?雷哥:id==5457742?秀秀:id==678804?"亚男老师的音乐直播间":
 				id==217331?"表哥直播间":id==5074415?"半支烟直播间":id==6119609?"编程直播间":"直播间"//肉球
