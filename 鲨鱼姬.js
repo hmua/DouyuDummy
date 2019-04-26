@@ -868,7 +868,7 @@ var dummy=(()=>{
 			///-	知道还有哪些等待应答的消息，依优先级排序来确定下一条，然后（模拟）输入应答文字
 			///-	此时就知道输入下一条消息所需要的时间，但——
 			///这个逻辑**都在本函数内**，调用本函数时只需要等待下一条消息的输入完成——甚至也许是用户手工输入的
-			for await(const a of prioritize(packaging(receiving)))yield answer(a)
+			for await(const a of prioritize(packaging(receiving)))if(b=answer(a))yield b
 		}
 		const ticks=prioritize(interval)
 		///TODO:要把自动应答和广播放到一起管理优先级
@@ -891,6 +891,13 @@ var dummy=(()=>{
 	}
 	const setup=(()=>{
 		const config=(()=>{
+			const roomName="直播间"
+			const welcome=a=>`欢迎「${a.user}」来到${roomName}！点点关注刷刷礼物爱你哟`
+			const getGift=a=>(a.quantity>1?a.quantity+a.quantifier:"")+a.gift.name
+			///一句赋值多个的短写法：[aa,bb]=[1,22]
+			const thanking=a=>(gift=getGift(a),`谢谢「${a.user}」的${gift}！嚒嚒哒爱你哟`)
+			const answer=a=>a instanceof room.chat.Welcome?welcome(a):a instanceof room.chat.Gift?thanking(a):console.error(a)
+			const general={messages:{},answer}
 			const 雷哥=(()=>{
 				const roomName="雷哥直播间"
 				const messages=(()=>{
@@ -995,14 +1002,10 @@ var dummy=(()=>{
 					Biuye夜:"夜夜",BIU李:"小李姐姐",
 					Biu泥狗带:"狗带"}
 				const getFriend=a=>friends[a]||a.toLowerCase().startsWith("biu丶")?a.substring(4):a.toLowerCase().startsWith("biu")?a.substring(3):undefined
-				const welcome=a=>(friend=friends[a.user])?`欢迎${friend}回到${roomName}！`:`欢迎「${a.user}」来到${roomName}！点点关注刷刷礼物爱你哟`
-				const thanking=a=>(
-					gift=(a.quantity>1?a.quantity+a.quantifier:"")+a.gift.name,
-					(friend=getFriend(a.user))?`谢谢${friend}的${gift}！${friend}辛苦啦嚒嚒哒`:`谢谢「${a.user}」的${gift}！嚒嚒哒爱你哟`
-				)
-				const answer=a=>{
-					return a instanceof room.chat.Welcome?welcome(a):a instanceof room.chat.Gift?thanking(a):console.error(a)
-				}
+				const welcome=a=>(friend=getFriend(a.user))?`欢迎${friend}回到${roomName}！`:`欢迎「${a.user}」来到${roomName}！点点关注刷刷礼物爱你哟`
+				const getGift=a=>(a.quantity>1?a.quantity+a.quantifier:"")+a.gift.name
+				const thanking=a=>(gift=getGift(a),(friend=getFriend(a.user))?`谢谢${friend}的${gift}！${friend}辛苦啦嚒嚒哒`:`谢谢「${a.user}」的${gift}！嚒嚒哒爱你哟`)
+				const answer=a=>a instanceof room.chat.Welcome?welcome(a):a instanceof room.chat.Gift?thanking(a):console.error(a)
 				return{messages,answer}
 			})()
 			const 秀秀=(()=>{
@@ -1013,11 +1016,9 @@ var dummy=(()=>{
 					天秀的战少:"战",高桥水断流:"桥",高桥白天不懂夜的黑:"桥",钱多多女神:"多多女神",
 					秀秀的精彩:"精彩",秀秀家的何2哥:"二哥",Sugarhood:"舒克",两只猫的流浪人生:"猫叔"}
 				const getFriend=a=>friends[a]
-				const welcome=a=>(friend=friends[a.user])?`欢迎${friend}回到${roomName}！`:`欢迎「${a.user}」来到${roomName}！点点关注刷刷礼物爱你哟`
-				const thanking=a=>(
-					gift=(a.quantity>1?a.quantity+a.quantifier:"")+a.gift.name,
-					(friend=getFriend(a.user))?`谢谢${friend}的${gift}！${friend}辛苦啦嚒嚒哒`:`谢谢「${a.user}」的${gift}！嚒嚒哒爱你哟`
-				)
+				const welcome=a=>(friend=getFriend(a.user))?`${friend}回来啦！`:undefined
+				const getGift=a=>(a.quantity>1?a.quantity+a.quantifier:"")+a.gift.name
+				const thanking=a=>(gift=getGift(a),(friend=getFriend(a.user))?`谢谢${friend}的${gift}！`:undefined)
 				const answer=a=>{
 					return a instanceof room.chat.Welcome?welcome(a):a instanceof room.chat.Gift?thanking(a):console.error(a)
 				}
@@ -1033,9 +1034,26 @@ var dummy=(()=>{
 					//"安如香喵Kissing":"香喵",	
 					//"天地人脉 ":"天地",	
 					//"早睡早起520":"呼噜噜",
+			const test=(()=>{
+				const roomName="雷哥直播间"
+				const friends={
+					Biu优秀饲养员kimi:"嫂子",君岑876000:"阿姨",
+					Biu雷哥616:"雷哥",倾城娱乐丶大龙:"大龙",Biu雨声:"大雨声",
+					Biu守卫者龙猫队616:"龙猫队", ///雨声说这不是猫队
+					Biu我不是臭榴莲:"榴莲",BIU绿豆芽:"豆芽",
+					Biuye夜:"夜夜",BIU李:"小李姐姐",
+					Biu泥狗带:"狗带"}
+				const getFriend=a=>friends[a]||a.toLowerCase().startsWith("biu丶")?a.substring(4):a.toLowerCase().startsWith("biu")?a.substring(3):undefined
+				const welcome=a=>(friend=getFriend(a.user))?`${friend}回来啦！`:undefined
+				const getGift=a=>(a.quantity>1?a.quantity+a.quantifier:"")+a.gift.name
+				const thanking=a=>(gift=getGift(a),(friend=getFriend(a.user))?`谢谢${friend}的${gift}！`:undefined)
+				const answer=a=>a instanceof room.chat.Welcome?welcome(a):a instanceof room.chat.Gift?thanking(a):console.error(a)
+				return{messages:[[],0],answer}
+			})()
 			const id=room.id
-			return id==5095833?雷哥:id==5457742?秀秀:id==678804?"亚男老师的音乐直播间":
-				id==217331?"表哥直播间":id==5074415?"半支烟直播间":id==6119609?"编程直播间":"直播间"//肉球
+			return true?test:id==5095833?雷哥FriendsOnly:id==5457742?秀秀:id==678804?"亚男老师的音乐直播间":
+				id==217331?"表哥直播间":id==5074415?"半支烟直播间":id==6119609?"编程直播间"
+					:general
 		})()
 		//enhanceControl()
 		batchSendMessage(config.messages,config.answer)
