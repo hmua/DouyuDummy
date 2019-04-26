@@ -897,7 +897,7 @@ var dummy=(()=>{
 			///一句赋值多个的短写法：[aa,bb]=[1,22]
 			const thanking=a=>(gift=getGift(a),`谢谢「${a.user}」的${gift}！嚒嚒哒爱你哟`)
 			const answer=a=>a instanceof room.chat.Welcome?welcome(a):a instanceof room.chat.Gift?thanking(a):console.error(a)
-			const general={messages:{},answer}
+			const general={messages:[[],0],answer}
 			const 雷哥=(()=>{
 				const roomName="雷哥直播间"
 				const messages=(()=>{
@@ -1001,7 +1001,7 @@ var dummy=(()=>{
 					Biu我不是臭榴莲:"榴莲",BIU绿豆芽:"豆芽",
 					Biuye夜:"夜夜",BIU李:"小李姐姐",
 					Biu泥狗带:"狗带"}
-				const getFriend=a=>friends[a]||a.toLowerCase().startsWith("biu丶")?a.substring(4):a.toLowerCase().startsWith("biu")?a.substring(3):undefined
+				const getFriend=a=>friends[a]||(a.toLowerCase().startsWith("biu丶")?a.substring(4):a.toLowerCase().startsWith("biu")?a.substring(3):undefined)
 				const welcome=a=>(friend=getFriend(a.user))?`欢迎${friend}回到${roomName}！`:`欢迎「${a.user}」来到${roomName}！点点关注刷刷礼物爱你哟`
 				const getGift=a=>(a.quantity>1?a.quantity+a.quantifier:"")+a.gift.name
 				const thanking=a=>(gift=getGift(a),(friend=getFriend(a.user))?`谢谢${friend}的${gift}！${friend}辛苦啦嚒嚒哒`:`谢谢「${a.user}」的${gift}！嚒嚒哒爱你哟`)
@@ -1022,7 +1022,7 @@ var dummy=(()=>{
 				const answer=a=>{
 					return a instanceof room.chat.Welcome?welcome(a):a instanceof room.chat.Gift?thanking(a):console.error(a)
 				}
-				return{messages:{},answer}
+				return{messages:[[],0],answer}
 			})()
  				//	"哎呦小菲菲":"灰灰",	
 					//"至十五":"十五",	
@@ -1043,7 +1043,7 @@ var dummy=(()=>{
 					Biu我不是臭榴莲:"榴莲",BIU绿豆芽:"豆芽",
 					Biuye夜:"夜夜",BIU李:"小李姐姐",
 					Biu泥狗带:"狗带"}
-				const getFriend=a=>friends[a]||a.toLowerCase().startsWith("biu丶")?a.substring(4):a.toLowerCase().startsWith("biu")?a.substring(3):undefined
+				const getFriend=a=>friends[a]||(a.toLowerCase().startsWith("biu丶")?a.substring(4):a.toLowerCase().startsWith("biu")?a.substring(3):undefined)
 				const welcome=a=>(friend=getFriend(a.user))?`${friend}回来啦！`:undefined
 				const getGift=a=>(a.quantity>1?a.quantity+a.quantifier:"")+a.gift.name
 				const thanking=a=>(gift=getGift(a),(friend=getFriend(a.user))?`谢谢${friend}的${gift}！`:undefined)
