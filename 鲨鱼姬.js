@@ -410,6 +410,8 @@ var dummy=(()=>{
 			///本来以为最后一个yield之后是不能执行代码的，其实可以用try...finally来做
 			///-	从[https://jakearchibald.com/2017/async-iterators-and-generators/]中间部分看到的，感谢作者
 		})()
+		const p=Object.getPrototypeOf(async function*(){}).prototype
+		p.preload=preload
 		return{map,filter,collect,preload,timeoutPromise}
 	})()
 	const douyu={
@@ -436,6 +438,8 @@ var dummy=(()=>{
 				太空卡:["张","f3e206359deffbdee0a0cdbccbab704b",60], ///太空旅行卡 ///6翅
 				棒棒糖:["根","d331dce3ee6817a2e89e78472749c49c",10], ///星空棒棒糖 ///1翅 贡献+10 经验+10 亲密度+10
 				小星星:["颗","5163e0b5c3d9b33cf2ab0ff9d02a0956"], ///星星 ///.1翅 各+1
+				///暂时不知道
+				幸运草:["棵","7f0f484872026c0d92b5679c43772577"],
 			}
 			return Object.keys(a).map(k=>{const i=a[k];i.unshift(k);return new Gift(...i)})
 		})(),
@@ -828,7 +832,7 @@ var dummy=(()=>{
 				const a=checkFrequently(outOfControlConditions)
 				for await(const b of a)console.log(b)
 			}
-			const tickOnIdleDuration=(source,timer=()=>fakeNaturalTypingDelay(5*1000))=>{
+			const tickOnIdleDuration=(inputStating,timer=()=>fakeNaturalTypingDelay(5*1000))=>{
 				let idleStartedOn//无输入内容开始时间
 				let isRecentlyInputing=()=>idleStartedOn==undefined
 				let rememberInputing=()=>{idleStartedOn=undefined}
@@ -841,20 +845,30 @@ var dummy=(()=>{
 							else if(intervalTicked())(startIdle(),yield undefined)
 					}
 				}
-				return f(source)
+				return f(inputStating)
 			}
 			const testTickOnIdleDuration=async()=>{
 				const a=checkFrequently(outOfControlConditions)
 				const c=tickOnIdleDuration(a)
 				for await(const value of c)console.log(value)
 			}
-			const a=checkFrequently(outOfControlConditions,1000/3)
-			return tickOnIdleDuration(a,()=>fakeNaturalTypingDelay(interval))
+			const inputStating=checkFrequently(outOfControlConditions,1000/3)
+			return tickOnIdleDuration(inputStating,()=>fakeNaturalTypingDelay(interval))
 		}
 		const autoAnswering=async function*(receiving){
 			const packaging=a=>{
 				a=asyncIterator.preload(a)
-				a=asyncIterator.map(a,async a=>(console.log(`${("0"+Math.round(Date.now()/1e3)%60).slice(-2)}:${a.length}`),await asyncIterator.timeoutPromise(11e3),a))
+				a=asyncIterator.map(a,async a=>(console.log(`${("0"+Math.round(Date.now()/1e3)%60).slice(-2)}:${a.length}`),a))
+				///BUG:因为这个filter，没有可以回答的弹幕时会死循环检测不会等下个间隔
+				///几个方案，一是没有可回复弹幕时返回空或者undefined；二是强制间隔
+				///-	这里面会知道间隔时间吗？间隔时间从哪来的？
+				///-	实际使用中，如果有广播，就一定会返回一条广播，如果没有广播时……
+				///三是等待到有可以回复的弹幕为止
+				///-	这就要要考虑用户手动发弹幕或者送礼物，导致等待被取消的情况，除非把用户操作也整合到时间线里，能吗？
+				///-	好像可以……
+				///TODO:先改一下动态时间线
+				///TODO:间隔控制的问题
+				///TODO:如果没有就返回没有，packaging移到外层控制
 				return asyncIterator.filter(a,a=>a.length>0)}
 			const prioritize=a=>{
 				const calc=a=>(
@@ -868,27 +882,125 @@ var dummy=(()=>{
 			///-	知道还有哪些等待应答的消息，依优先级排序来确定下一条，然后（模拟）输入应答文字
 			///-	此时就知道输入下一条消息所需要的时间，但——
 			///这个逻辑**都在本函数内**，调用本函数时只需要等待下一条消息的输入完成——甚至也许是用户手工输入的
-			for await(const a of prioritize(packaging(receiving)))if(b=answer(a))yield b
+			for await(const a of prioritize(packaging(receiving)))yield a
 		}
-		const ticks=prioritize(interval)
-		///TODO:要把自动应答和广播放到一起管理优先级
+		const ticks=prioritize(11e3)
+		///TODO:要把自动应答和广播放到一个时间线
+		///-	广播默认优先级最低，但如果长时间没广播会随时间提高优先级
+		///TODO:支持一组连续的发言
 		;(async()=>{for await(const _ of ticks)send(messages.next().value)})()
-		;(async()=>{for await(const a of autoAnswering(room.chat.list))send(a)})()
-		//;(async()=>{
-		//	const f=(i,s)=>{
-		//	const a=autoAnswering()
-		//	for await(const i of a)send(i)
-		//})()
-		//const finalResult = [
-		//	(async()=>{for await(const _ of ticks)send(messages.next().value)})(),
-		//	(async()=>{for await(const a of autoAnswering())send(a)})()
-		//]
-		//await Promise.all([
-		//	(async()=>{for await(const _ of ticks)send(messages.next().value)})(),
-		//	(async()=>{for await(const a of autoAnswering())send(a)})()
-		//])
-		//for await(const a of autoAnswering())console.log(a)
+			
+		const ticks2=prioritize(11e3),answerings=autoAnswering(room.chat.list)
+		//;(async()=>{for await(const a of answerings)send(a)})()
+		;(async()=>{for await(const _ of ticks2)if(a=answer(answerings.next().value))send(a)})()
 	}
+	///动态时间线：从外部控制发言等待时间
+	///模拟输入弹幕时间，等待直播间发言间隔（发送按钮冷却）
+	///连续发言间隔时间短
+	///根据直播间弹幕密度来控制广播频次，有人弹幕但频次低时少插话（可以进一步判断是不是水友正在对谈）
+	///手动操作打断自动操作
+	///直播间弹幕太少时发一些召唤性质弹幕（在线的抱棵树）
+	///自动发言时
+	///1. 等待一个需要回复的消息（感谢礼物、回答问题等），发回复
+	///2. 如果等待半分钟没有需要及时回复的消息，并且直播间其它水友已经发送了五条左右弹幕，则发滚动消息（公告、预告等）
+	///3. 根据发言内容模拟输入时间
+	///	- 如果输入时，有更优先的消息，是否要打断当前输入？
+	///4. 如果模拟输入时间期间，用户进行手动操作，则取消本次自动发言，等操作完从第一步重新开始
+	///5. 如果模拟输入时间结束，发言按钮没冷却，等待冷却
+	///6. 发送
+	///7. 如果有连续发言，继续模拟输入下一句，等待发言间隔后继续发送
+	///8. 回到第一步等待下一个自动发言
+	///以及——是不是要动态调整发言顺序和分组？
+	///除了排优先级，除了预编好的连续公告之外，如果一个水友连续发了几个火箭，是不是应该尽量连续感谢？
+	///纯粹的动态时间线是不是假命题？可能必须要和发言内容一起控制
+
+	///当前prioritize函数等于实现了第二条，等于现在要用promise重写prioritize
+	///可能有两个写法，一是原来用的，逐层状态检查，二是用promise，哪个更好？如果可行的话显然应该选promise
+	///所有操作都是promise
+	///当自动发一条发言时，发言结束时即resolve
+	///当用户手动操作时，操作结束即resolve
+	///当更高优先级的发言打断当前发言时reject
+	///尝试提前reject一个promise
+	const tryRejectPromiseBeforeResolve=skip=true||(()=>{
+		console.log("promise 1")
+		await new Promise((resolve,reject)=>setTimeout(()=>resolve(console.log("resolve")),2e3)).then(()=>console.log("then"))
+		console.log("reject before resolve")
+		///先reject就只会触发catch，then和catch只会触发一个
+		await new Promise((resolve,reject)=>{
+			setTimeout(()=>resolve(console.log("resolve")),2e3)
+			setTimeout(()=>reject(console.log("reject")),1e3)}).then(()=>console.log("then")).catch(()=>console.log("catch"))
+		console.log("resolve/reject outside")
+		var promiseResolve,promiseReject
+		new Promise(function(resolve, reject){
+			promiseResolve=()=>resolve(console.log("resolve"))
+			promiseReject=reject
+		})
+		promiseResolve()
+	})()
+	///现在变成，优先级更高的工作向下打断现有promise
+	///一个工作结束后一定会启用下一个promise安排下一个工作，因此任何时间一定会有一个promise存在
+	///用户手动操作是监听界面resolve
+	///因为内部仍然是操作promise，最后对外出来的应该仍然是async generator
+	const tryRejectPromiseBeforeResolve=skip=true||(()=>{
+		new Promise((resolve,reject)=>setTimeout(()=>resolve((console.log("resolve"),"value from promise")),2e3))
+			.then(a=>(console.log("then"),console.log(a)))
+		console.log("promise returns another promise")
+		new Promise((resolve,reject)=>setTimeout(()=>resolve((console.log("resolve"),
+			new Promise((resolve,reject)=>setTimeout(()=>resolve((console.log("resolve2"),
+				new Promise((resolve,reject)=>setTimeout(()=>resolve((console.log("resolve3"),"value from promise3")),2e3))
+			)),2e3))
+		)),2e3))
+			.then(a=>(console.log("then"),console.trace(a)))
+		///参照[https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/resolve#Resolving_another_Promise]、
+		///[https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/then#Return_value]
+		///promise会resolve到底，多层promise会成为一个
+	})()
+	///可能出来的不是async generator，而是promise chain
+	///试一下关键字写法，是否可以通过throw来reject
+	///结果：throw不会隐含处理成reject，上面的代码会产生一个Uncaught thrown，之后resolve
+	///**Errors thrown inside asynchronous functions will act like uncaught errors**[https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/catch#Gotchas_when_throwing_errors]
+	const tryRejectWithThrowing=skip=false||(()=>{
+		await(async()=>setTimeout(()=>console.log("resolve"),2e3))() ///单setTimeout是不会等待的
+		///参照`tryRejectPromiseBeforeResolve`的promise
+		new Promise((resolve,reject)=>{
+			setTimeout(()=>resolve(console.log("resolve")),2e3)
+			setTimeout(()=>{throw new Error("thrown")},1e3)})
+			.catch(()=>console.log("catch"))
+			.then(()=>console.log("fulfilled"),reason=>console.log("rejected"))
+	})()
+	///但是反过来reject是可以catch的
+	///所以虽然不能用throw代替reject，但似乎处理两者的语法可以通用？
+	///这段代码参考自[https://stackoverflow.com/a/47995824], thants to @OzzyTheGiant
+	const tryCatchingFromRejecting=skip=false||(()=>{
+		const foo=async (id) => {
+			return new Promise(function(resolve,reject) {
+			setTimeout(()=>{
+				// execute some code here
+				if(false) { // let's say this is a boolean value from line above
+					return resolve("success");
+				} else {
+					return reject("error"); // this can be anything, preferably an Error object to catch the stacktrace from this function
+				}},2e3)
+			});
+		}
+		const bar=async () => {
+			try {
+				var result=await foo("someID")
+				console.log("not cautched")
+				console.log(result)
+				// use the result here
+			} catch(error) {
+				// handle error here
+				console.log("cautched")
+				console.log(result)
+			}
+		}
+		await bar()
+	})()
+	///先做一层试一下
+	const promisedTimeline=(()=>{
+		const manualOperating=()=>{}
+	})()
 	const setup=(()=>{
 		const config=(()=>{
 			const roomName="直播间"
