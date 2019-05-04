@@ -452,126 +452,134 @@ var dummy=(()=>{
 			douyu.getGiftfromUrl("42669592fba5a9c067614dee8feea7de"),
 			douyu.getGiftfromUrl("296d39b7951a249d6f640ed58cfacb67")]}
 	const room=(()=>{
-		const id=Number(window.location.pathname.substring(1))
-		let get=a=>document.getElementsByClassName(a)[0]
-		const chat=(()=>{
-			class Welcome{constructor(user){this.user=user}}
-			class Gift{constructor(user,[quantity,gift]){this.user=user;this.gift=gift,this.quantity=quantity,this.quantifier=gift.quantifier,this.score=gift.score*quantity}}
-			const list=(()=>{
-				const list=get("Barrage-list")
-				const welcome=a=>{
-					if(a.classList.contains("Barrage-userEnter")){
-						const b=a.lastElementChild
-						console.assert(b.tagName=="SPAN",b)
-						console.assert(b.className=="Barrage-text",b)
-						console.assert(b.innerText=="欢迎来到本直播间",b)
-						return new Welcome(b.previousElementSibling.title)
-					}
-				}
-				const gift=a=>{
-					if(a.classList.contains("Barrage-message")){
-						const b=a.lastElementChild
-						console.assert(b.tagName=="SPAN",b)
-						console.assert(b.className=="Barrage-text",b)
-						console.assert(b.innerText.trim().startsWith("赠送给主播"),b)
-						console.assert(b.firstElementChild.tagName=="IMG",b)
-						const parseGift=image=>douyu.getGiftfromUrl(image.src)
-						const quantity=a=>a.lastElementChild.tagName=="SPAN"?Number(a.lastElementChild.innerText.substring(1)):1
-						const make=a=>[quantity(a),parseGift(a.firstElementChild)]
-						return new Gift(b.previousElementSibling.title,make(b))
-					}
-				}
-				const sort=a=>{
-					console.assert(a.tagName=="LI"&&a.classList.contains("Barrage-listItem"))
-					const sort=a=>{
-						const isSystemMessage=a.tagName=="A"&&a.className=="Barrage-notice Barrage-notice--red"
-						if(!isSystemMessage){
-							console.assert(a.tagName=="DIV",a)
-							return welcome(a)||gift(a)
+		const wrapper=(()=>{
+			const id=Number(window.location.pathname.substring(1))
+			let get=a=>document.getElementsByClassName(a)[0]
+			const chat=(()=>{
+				class Welcome{constructor(user){this.user=user}}
+				class Gift{constructor(user,[quantity,gift]){this.user=user;this.gift=gift,this.quantity=quantity,this.quantifier=gift.quantifier,this.score=gift.score*quantity}}
+				const list=(()=>{
+					const list=get("Barrage-list")
+					const welcome=a=>{
+						if(a.classList.contains("Barrage-userEnter")){
+							const b=a.lastElementChild
+							console.assert(b.tagName=="SPAN",b)
+							console.assert(b.className=="Barrage-text",b)
+							console.assert(b.innerText=="欢迎来到本直播间",b)
+							return new Welcome(b.previousElementSibling.title)
 						}
 					}
-					return sort(a.lastElementChild)
-				}
-				///learned from https://stackoverflow.com/a/35718902/2537458, thanks to @Volune
-				const eventIterator=(target,eventName)=>{
-					class Controller{
-						next(){return new Promise(resolve=>target.addEventListener(eventName,function f(e) {
-							target.removeEventListener(eventName, f)
-							resolve({value:e.target,done:false})
-						}))}
-						[Symbol.asyncIterator](){return{next:()=>this.next()}}
+					const gift=a=>{
+						if(a.classList.contains("Barrage-message")){
+							const b=a.lastElementChild
+							console.assert(b.tagName=="SPAN",b)
+							console.assert(b.className=="Barrage-text",b)
+							console.assert(b.innerText.trim().startsWith("赠送给主播"),b)
+							console.assert(b.firstElementChild.tagName=="IMG",b)
+							const parseGift=image=>douyu.getGiftfromUrl(image.src)
+							const quantity=a=>a.lastElementChild.tagName=="SPAN"?Number(a.lastElementChild.innerText.substring(1)):1
+							const make=a=>[quantity(a),parseGift(a.firstElementChild)]
+							return new Gift(b.previousElementSibling.title,make(b))
+						}
 					}
-					return new Controller()
-				}
-				const testEventIterator=async()=>{
-					document.body.insertAdjacentHTML("beforeEnd","<input/>")
-					const t=document.body.lastChild;
-					for await(const a of eventIterator(t,"input"))console.log(a)
-				}
-				const onMessageReceived=()=>{
-					const a=eventIterator(list,"DOMNodeInserted")
-					return asyncIterator.collect(a,sort)
-				}
-				const testOnMessageReceived=async()=>{
-					for await(const a of onMessageReceived())console.log(a)
-				}
-				return onMessageReceived()
+					const sort=a=>{
+						console.assert(a.tagName=="LI"&&a.classList.contains("Barrage-listItem"))
+						const sort=a=>{
+							const isSystemMessage=a.tagName=="A"&&a.className=="Barrage-notice Barrage-notice--red"
+							if(!isSystemMessage){
+								console.assert(a.tagName=="DIV",a)
+								return welcome(a)||gift(a)
+							}
+						}
+						return sort(a.lastElementChild)
+					}
+					///learned from https://stackoverflow.com/a/35718902/2537458, thanks to @Volune
+					const eventIterator=(target,eventName)=>{
+						class Controller{
+							next(){return new Promise(resolve=>target.addEventListener(eventName,function f(e) {
+								target.removeEventListener(eventName, f)
+								resolve({value:e.target,done:false})
+							}))}
+							[Symbol.asyncIterator](){return{next:()=>this.next()}}
+						}
+						return new Controller()
+					}
+					const testEventIterator=async()=>{
+						document.body.insertAdjacentHTML("beforeEnd","<input/>")
+						const t=document.body.lastChild;
+						for await(const a of eventIterator(t,"input"))console.log(a)
+					}
+					const onMessageReceived=()=>{
+						const a=eventIterator(list,"DOMNodeInserted")
+						return asyncIterator.collect(a,sort)
+					}
+					const testOnMessageReceived=async()=>{
+						for await(const a of onMessageReceived())console.log(a)
+					}
+					return onMessageReceived()
+				})()
+				//注意此方法不会自动检查是否能发言 要明确检查冷却时间等
+				let speak=(()=>{
+					let input=get("ChatSend-txt")
+					let sendButton=get("ChatSend-button")
+					let send=a=>{
+						input.value=a
+						sendButton.click()
+					}
+					let getRoomMsgCd=()=>(!isNaN(Number(sendButton.innerText)))?Number(sendButton.innerText):0
+					let canSend=()=>sendButton.className.toLocaleString().search("is-gray")==-1
+					let test=()=>{
+						send("[emot:dy108][emot:dy108]")
+						console.log(getRoomMsgCd())
+					}
+					return{list,input,send,sendButton,canSend,getRoomMsgCd,test}
+				})()
+				return{list,speak,Welcome,Gift}
 			})()
-			//注意此方法不会自动检查是否能发言 要明确检查冷却时间等
-			let speak=(()=>{
-				let input=get("ChatSend-txt")
-				let sendButton=get("ChatSend-button")
-				let send=a=>{
-					input.value=a
-					sendButton.click()
-				}
-				let getRoomMsgCd=()=>(!isNaN(Number(sendButton.innerText)))?Number(sendButton.innerText):0
-				let canSend=()=>sendButton.className.toLocaleString().search("is-gray")==-1
-				let test=()=>{
-					send("[emot:dy108][emot:dy108]")
-					console.log(getRoomMsgCd())
-				}
-				return{list,input,send,sendButton,canSend,getRoomMsgCd,test}
+			///@deprecated
+			Element.prototype.remove=function(){
+				this.parentElement.removeChild(this)
+			}
+			let player=(()=>{
+				let getPauseButton=()=>get("pause-c594e8")
+				let pause=()=>getPauseButton().click()
+				//let pausePlayerWhenLoaded=(()=>{
+				//    while(!getPauseButton())await new Promise(r => setTimeout(r,500))
+				//    getPauseButton().click()
+				//})()
+				return{pause}
 			})()
-			return{list,speak,Welcome,Gift}
+			let danmuCloseButton=get("showdanmu-42b0ac") //关闭弹幕按钮
+			let hideDanmu=()=>danmuCloseButton.click()
+			let pageFullscreenButton=get("wfs-2a8e83") //关闭弹幕按钮
+			let pageFullscreen=()=>pageFullscreenButton.click()
+			let getBackpackPopup=()=>get("Backpack JS_Backpack") //背包弹窗
+			let isShowingBackpack=()=>getBackpackPopup()!=undefined
+			let getBubbleBox=()=>get("bubble-box-418e1e") //颜值主播右下角的点赞泡泡动画
+			class user{
+				static isEditingMessage(){return chat.speak.input.value!=""}
+				static isOpeningBackpack(){return isShowingBackpack()}
+				static isOperating(){return user.isEditingMessage()||user.isOpeningBackpack()}
+			}
+			return{id,name,player,chat,hideDanmu,pageFullscreen,user,
+				danmu:get("comment-37342a danmu-6e95c1"), //聊天弹幕区
+				broadcast:get("broadcastDiv-af5699"), //广播弹幕区
+				//let video=get("layout-Player-videoEntity"), //视频区
+				video:get("_32G4lrnklPDotWjRQmof27"), //video标签
+				aside:get("layout-Player-aside"), //右侧栏(聊天和上面的贡献榜)
+				backpack:get("PlayerToolbar-backpackArea") //背包按钮
+			}
 		})()
-		///@deprecated
-		Element.prototype.remove=function(){
-			this.parentElement.removeChild(this)
-		}
-		let player=(()=>{
-			let getPauseButton=()=>get("pause-c594e8")
-			let pause=()=>getPauseButton().click()
-			//let pausePlayerWhenLoaded=(()=>{
-			//    while(!getPauseButton())await new Promise(r => setTimeout(r,500))
-			//    getPauseButton().click()
-			//})()
-			return{pause}
-		})()
-		let danmuCloseButton=get("showdanmu-42b0ac") //关闭弹幕按钮
-		let hideDanmu=()=>danmuCloseButton.click()
-		let pageFullscreenButton=get("wfs-2a8e83") //关闭弹幕按钮
-		let pageFullscreen=()=>pageFullscreenButton.click()
-		let getBackpackPopup=()=>get("Backpack JS_Backpack") //背包弹窗
-		let isShowingBackpack=()=>getBackpackPopup()!=undefined
-		let getBubbleBox=()=>get("bubble-box-418e1e") //颜值主播右下角的点赞泡泡动画
-		class user{
-			static isEditingMessage(){return chat.speak.input.value!=""}
-			static isOpeningBackpack(){return isShowingBackpack()}
-			static isOperating(){return user.isEditingMessage()||user.isOpeningBackpack()}
-		}
-		return{id,name,player,chat,hideDanmu,pageFullscreen,user,
-			danmu:get("comment-37342a danmu-6e95c1"), //聊天弹幕区
-			broadcast:get("broadcastDiv-af5699"), //广播弹幕区
-			//let video=get("layout-Player-videoEntity"), //视频区
-			video:get("_32G4lrnklPDotWjRQmof27"), //video标签
-			aside:get("layout-Player-aside"), //右侧栏(聊天和上面的贡献榜)
-			backpack:get("PlayerToolbar-backpackArea") //背包按钮
-		}
+		const manualOperating=()=>(
+			isSpeakCooling=()=>room.wrapper.chat.speak.getRoomMsgCd()>0,
+			isUserOperating=room.wrapper.user.isOperating,
+			isSpeakCooling()||isUserOperating()
+		)
+		return{wrapper,manualOperating}
 	})()
 	///增强直播间 降低CPU占用 放大聊天栏
 	const enhanceControl=()=>{
-		let a=room
+		let a=room.wrapper
 		let optimizeCpuUsage=()=>{
 			a.player.pause()
 			//a.video.remove() //对CPU占用影响不明显 只要暂停就行了
@@ -585,7 +593,7 @@ var dummy=(()=>{
 			//a.aside.style.zIndex=1111
 			//a.aside.style.position="fixed"
 			//a.backpack.style.zIndex=1111
-			room.pageFullscreen()
+			room.wrapper.pageFullscreen()
 		}
 		//压缩聊天列表内容
 		let compactChatlist=()=>{
@@ -650,14 +658,14 @@ var dummy=(()=>{
 		let count=0
 		const log=delay=>console.log("#"+count++ +" "+delay)
 		const fakeNaturalTypingDelay=(minDelay,maxDelay=minDelay*1.5)=>(console.count(),minDelay+Math.random()*(maxDelay-minDelay+1))
-		const send=room.chat.speak.send,input=room.chat.speak.input,user=room.user
+		const send=room.wrapper.chat.speak.send,input=room.wrapper.chat.speak.input,user=room.wrapper.user
 		const batchSendMessage=(messages,minDelay,maxDelay,instantStart=true)=>{
 			let autoSendMsg
 			let stop=()=>{console.log("STOP");clearTimeout(autoSendMsg)}
 			let send1=(messages,minDelay,maxDelay,instantStart=false)=>{
-				let canSend=room.chat.send.canSend
+				let canSend=room.wrapper.chat.send.canSend
 				if(!canSend())return
-				let getRoomMsgCd=room.chat.send.getRoomMsgCd
+				let getRoomMsgCd=room.wrapper.chat.send.getRoomMsgCd
 				let next=()=>messages.next().value
 				if(instantStart)send(next())
 				let roomMsgCd=getRoomMsgCd()
@@ -673,10 +681,10 @@ var dummy=(()=>{
 		const batchSendMessage2=(messages,minDelay,maxDelay,instantStart=true)=>{
 			let delaySend
 			let send=(messages,minDelay,maxDelay)=>{
-				let canSend=room.chat.send.canSend
+				let canSend=room.wrapper.chat.send.canSend
 				if(!canSend())return
-				let getRoomMsgCd=room.chat.send.getRoomMsgCd
-				let roomSend=room.chat.send.send
+				let getRoomMsgCd=room.wrapper.chat.send.getRoomMsgCd
+				let roomSend=room.wrapper.chat.send.send
 				let fakeNaturalTypingDelay=()=>minDelay+Math.random()*(maxDelay-minDelay+1)
 				let next=()=>messages.next().value
 				if(instantStart)roomSend(next())
@@ -734,10 +742,10 @@ var dummy=(()=>{
 					要确认是否成功 就要延迟一段时间 等斗鱼程序尝试发送之后进行确认
 					有些繁琐
 			*/
-			let input=room.chat.send.input
+			let input=room.wrapper.chat.send.input
 			let solutionThroughListeningEvents=()=>{
 				input.addEventListener("input",()=>input.value==""?resume():stop())
-				room.chat.send.sendButton.addEventListener("click",()=>console.log("click"))
+				room.wrapper.chat.send.sendButton.addEventListener("click",()=>console.log("click"))
 			}
 			/*
 			每n秒钟检测一次输入框 如有有文字就暂停
@@ -815,9 +823,6 @@ var dummy=(()=>{
 		const prioritize=interval=>{
 			//const watchingCloudStack=(...levels)=>{for(const state of levels)if(state)return state}
 			//const testWatchingCloudStack=()=>console.assert(watchingCloudStack(false,undefined,"Bling!",false)=="Bling!")
-			const isSpeakCooling=()=>room.chat.speak.getRoomMsgCd()>0
-			const isUserOperating=room.user.isOperating
-			const outOfControlConditions=()=>isSpeakCooling()||isUserOperating()
 			const checkFrequently=(check,checkInterval=1000)=>{
 				class Controller{
 					constructor(check){
@@ -828,10 +833,11 @@ var dummy=(()=>{
 				}
 				return new Controller(check)
 			}
-			const testCheckFrequently=async()=>{
-				const a=checkFrequently(outOfControlConditions)
+			var skipTests=false
+			const testCheckFrequently=skipTests||(async()=>{
+				const a=checkFrequently(room.manualOperating)
 				for await(const b of a)console.log(b)
-			}
+			})()
 			const tickOnIdleDuration=(inputStating,timer=()=>fakeNaturalTypingDelay(5*1000))=>{
 				let idleStartedOn//无输入内容开始时间
 				let isRecentlyInputing=()=>idleStartedOn==undefined
@@ -848,11 +854,11 @@ var dummy=(()=>{
 				return f(inputStating)
 			}
 			const testTickOnIdleDuration=async()=>{
-				const a=checkFrequently(outOfControlConditions)
+				const a=checkFrequently(room.manualOperating)
 				const c=tickOnIdleDuration(a)
 				for await(const value of c)console.log(value)
 			}
-			const inputStating=checkFrequently(outOfControlConditions,1000/3)
+			const inputStating=checkFrequently(room.manualOperating,1000/3)
 			return tickOnIdleDuration(inputStating,()=>fakeNaturalTypingDelay(interval))
 		}
 		const autoAnswering=async function*(receiving){
@@ -873,7 +879,7 @@ var dummy=(()=>{
 			const prioritize=a=>{
 				const calc=a=>(
 					thanking=a=>a.score,
-					a instanceof room.chat.Welcome?0:a instanceof room.chat.Gift?thanking(a):console.error(a))
+					a instanceof room.wrapper.chat.Welcome?0:a instanceof room.wrapper.chat.Gift?thanking(a):console.error(a))
 				return asyncIterator.map(a,a=>(a.sort((a,b)=>calc(a)-calc(b)),a.reverse(),a[0]))
 			}
 			///一层adapter，接收消息，缓存，依优先权排序后放出
@@ -885,121 +891,123 @@ var dummy=(()=>{
 			for await(const a of prioritize(packaging(receiving)))yield a
 		}
 		const ticks=prioritize(11e3)
-		///TODO:要把自动应答和广播放到一个时间线
-		///-	广播默认优先级最低，但如果长时间没广播会随时间提高优先级
-		///TODO:支持一组连续的发言
-		;(async()=>{for await(const _ of ticks)send(messages.next().value)})()
+		/////TODO:要把自动应答和广播放到一个时间线
+		/////-	广播默认优先级最低，但如果长时间没广播会随时间提高优先级
+		/////TODO:支持一组连续的发言
+		//;(async()=>{for await(const _ of ticks)send(messages.next().value)})()
 			
-		const ticks2=prioritize(11e3),answerings=autoAnswering(room.chat.list)
-		//;(async()=>{for await(const a of answerings)send(a)})()
-		;(async()=>{for await(const _ of ticks2)if(a=answer(answerings.next().value))send(a)})()
+		//const ticks2=prioritize(11e3),answerings=autoAnswering(room.wrapper.chat.list)
+		////;(async()=>{for await(const a of answerings)send(a)})()
+		//;(async()=>{for await(const _ of ticks2)if(a=answer(answerings.next().value))send(a)})()
 	}
-	///动态时间线：从外部控制发言等待时间
-	///模拟输入弹幕时间，等待直播间发言间隔（发送按钮冷却）
-	///连续发言间隔时间短
-	///根据直播间弹幕密度来控制广播频次，有人弹幕但频次低时少插话（可以进一步判断是不是水友正在对谈）
-	///手动操作打断自动操作
-	///直播间弹幕太少时发一些召唤性质弹幕（在线的抱棵树）
-	///自动发言时
-	///1. 等待一个需要回复的消息（感谢礼物、回答问题等），发回复
-	///2. 如果等待半分钟没有需要及时回复的消息，并且直播间其它水友已经发送了五条左右弹幕，则发滚动消息（公告、预告等）
-	///3. 根据发言内容模拟输入时间
-	///	- 如果输入时，有更优先的消息，是否要打断当前输入？
-	///4. 如果模拟输入时间期间，用户进行手动操作，则取消本次自动发言，等操作完从第一步重新开始
-	///5. 如果模拟输入时间结束，发言按钮没冷却，等待冷却
-	///6. 发送
-	///7. 如果有连续发言，继续模拟输入下一句，等待发言间隔后继续发送
-	///8. 回到第一步等待下一个自动发言
-	///以及——是不是要动态调整发言顺序和分组？
-	///除了排优先级，除了预编好的连续公告之外，如果一个水友连续发了几个火箭，是不是应该尽量连续感谢？
-	///纯粹的动态时间线是不是假命题？可能必须要和发言内容一起控制
-
-	///当前prioritize函数等于实现了第二条，等于现在要用promise重写prioritize
-	///可能有两个写法，一是原来用的，逐层状态检查，二是用promise，哪个更好？如果可行的话显然应该选promise
-	///所有操作都是promise
-	///当自动发一条发言时，发言结束时即resolve
-	///当用户手动操作时，操作结束即resolve
-	///当更高优先级的发言打断当前发言时reject
-	///尝试提前reject一个promise
-	const tryRejectPromiseBeforeResolve=skip=true||(()=>{
-		console.log("promise 1")
-		await new Promise((resolve,reject)=>setTimeout(()=>resolve(console.log("resolve")),2e3)).then(()=>console.log("then"))
-		console.log("reject before resolve")
-		///先reject就只会触发catch，then和catch只会触发一个
-		await new Promise((resolve,reject)=>{
-			setTimeout(()=>resolve(console.log("resolve")),2e3)
-			setTimeout(()=>reject(console.log("reject")),1e3)}).then(()=>console.log("then")).catch(()=>console.log("catch"))
-		console.log("resolve/reject outside")
-		var promiseResolve,promiseReject
-		new Promise(function(resolve, reject){
-			promiseResolve=()=>resolve(console.log("resolve"))
-			promiseReject=reject
-		})
-		promiseResolve()
-	})()
-	///现在变成，优先级更高的工作向下打断现有promise
-	///一个工作结束后一定会启用下一个promise安排下一个工作，因此任何时间一定会有一个promise存在
-	///用户手动操作是监听界面resolve
-	///因为内部仍然是操作promise，最后对外出来的应该仍然是async generator
-	const tryRejectPromiseBeforeResolve=skip=true||(()=>{
-		new Promise((resolve,reject)=>setTimeout(()=>resolve((console.log("resolve"),"value from promise")),2e3))
-			.then(a=>(console.log("then"),console.log(a)))
-		console.log("promise returns another promise")
-		new Promise((resolve,reject)=>setTimeout(()=>resolve((console.log("resolve"),
-			new Promise((resolve,reject)=>setTimeout(()=>resolve((console.log("resolve2"),
-				new Promise((resolve,reject)=>setTimeout(()=>resolve((console.log("resolve3"),"value from promise3")),2e3))
-			)),2e3))
-		)),2e3))
-			.then(a=>(console.log("then"),console.trace(a)))
-		///参照[https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/resolve#Resolving_another_Promise]、
-		///[https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/then#Return_value]
-		///promise会resolve到底，多层promise会成为一个
-	})()
-	///可能出来的不是async generator，而是promise chain
-	///试一下关键字写法，是否可以通过throw来reject
-	///结果：throw不会隐含处理成reject，上面的代码会产生一个Uncaught thrown，之后resolve
-	///**Errors thrown inside asynchronous functions will act like uncaught errors**[https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/catch#Gotchas_when_throwing_errors]
-	const tryRejectWithThrowing=skip=false||(()=>{
-		await(async()=>setTimeout(()=>console.log("resolve"),2e3))() ///单setTimeout是不会等待的
-		///参照`tryRejectPromiseBeforeResolve`的promise
-		new Promise((resolve,reject)=>{
-			setTimeout(()=>resolve(console.log("resolve")),2e3)
-			setTimeout(()=>{throw new Error("thrown")},1e3)})
-			.catch(()=>console.log("catch"))
-			.then(()=>console.log("fulfilled"),reason=>console.log("rejected"))
-	})()
-	///但是反过来reject是可以catch的
-	///所以虽然不能用throw代替reject，但似乎处理两者的语法可以通用？
-	///这段代码参考自[https://stackoverflow.com/a/47995824], thants to @OzzyTheGiant
-	const tryCatchingFromRejecting=skip=false||(()=>{
-		const foo=async (id) => {
-			return new Promise(function(resolve,reject) {
-			setTimeout(()=>{
-				// execute some code here
-				if(false) { // let's say this is a boolean value from line above
-					return resolve("success");
-				} else {
-					return reject("error"); // this can be anything, preferably an Error object to catch the stacktrace from this function
-				}},2e3)
-			});
-		}
-		const bar=async () => {
-			try {
-				var result=await foo("someID")
-				console.log("not cautched")
-				console.log(result)
-				// use the result here
-			} catch(error) {
-				// handle error here
-				console.log("cautched")
-				console.log(result)
-			}
-		}
-		await bar()
-	})()
-	///先做一层试一下
 	const promisedTimeline=(()=>{
-		const manualOperating=()=>{}
+		///动态时间线：从外部控制发言等待时间
+		///模拟输入弹幕时间，等待直播间发言间隔（发送按钮冷却）
+		///连续发言间隔时间短
+		///根据直播间弹幕密度来控制广播频次，有人弹幕但频次低时少插话（可以进一步判断是不是水友正在对谈）
+		///手动操作打断自动操作
+		///直播间弹幕太少时发一些召唤性质弹幕（在线的抱棵树）
+		///自动发言时
+		///1. 等待一个需要回复的消息（感谢礼物、回答问题等），发回复
+		///2. 如果等待半分钟没有需要及时回复的消息，并且直播间其它水友已经发送了五条左右弹幕，则发滚动消息（公告、预告等）
+		///3. 根据发言内容模拟输入时间
+		///	- 如果输入时，有更优先的消息，是否要打断当前输入？
+		///4. 如果模拟输入时间期间，用户进行手动操作，则取消本次自动发言，等操作完从第一步重新开始
+		///5. 如果模拟输入时间结束，发言按钮没冷却，等待冷却
+		///6. 发送
+		///7. 如果有连续发言，继续模拟输入下一句，等待发言间隔后继续发送
+		///8. 回到第一步等待下一个自动发言
+		///以及——是不是要动态调整发言顺序和分组？
+		///除了排优先级，除了预编好的连续公告之外，如果一个水友连续发了几个火箭，是不是应该尽量连续感谢？
+		///纯粹的动态时间线是不是假命题？可能必须要和发言内容一起控制
+
+		///当前prioritize函数等于实现了第二条，等于现在要用promise重写prioritize
+		///可能有两个写法，一是原来用的，逐层状态检查，二是用promise，哪个更好？如果可行的话显然应该选promise
+		///所有操作都是promise
+		///当自动发一条发言时，发言结束时即resolve
+		///当用户手动操作时，操作结束即resolve
+		///当更高优先级的发言打断当前发言时reject
+		///尝试提前reject一个promise
+		const tryRejectPromiseBeforeResolve=skip=true||(async()=>{
+			console.log("promise 1")
+			await new Promise((resolve,reject)=>setTimeout(()=>resolve(console.log("resolve")),2e3)).then(()=>console.log("then"))
+			console.log("reject before resolve")
+			///先reject就只会触发catch，then和catch只会触发一个
+			await new Promise((resolve,reject)=>{
+				setTimeout(()=>resolve(console.log("resolve")),2e3)
+				setTimeout(()=>reject(console.log("reject")),1e3)}).then(()=>console.log("then")).catch(()=>console.log("catch"))
+			console.log("resolve/reject outside")
+			var promiseResolve,promiseReject
+			new Promise(function(resolve, reject){
+				promiseResolve=()=>resolve(console.log("resolve"))
+				promiseReject=reject
+			})
+			promiseResolve()
+		})()
+		///现在变成，优先级更高的工作向下打断现有promise
+		///一个工作结束后一定会启用下一个promise安排下一个工作，因此任何时间一定会有一个promise存在
+		///用户手动操作是监听界面resolve
+		///因为内部仍然是操作promise，最后对外出来的应该仍然是async generator
+		const tryPromiseFeedbackPromise=skip=true||(()=>{
+			new Promise((resolve,reject)=>setTimeout(()=>resolve((console.log("resolve"),"value from promise")),2e3))
+				.then(a=>(console.log("then"),console.log(a)))
+			console.log("promise returns another promise")
+			new Promise((resolve,reject)=>setTimeout(()=>resolve((console.log("resolve"),
+				new Promise((resolve,reject)=>setTimeout(()=>resolve((console.log("resolve2"),
+					new Promise((resolve,reject)=>setTimeout(()=>resolve((console.log("resolve3"),"value from promise3")),2e3))
+				)),2e3))
+			)),2e3))
+				.then(a=>(console.log("then"),console.trace(a)))
+			///参照[https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/resolve#Resolving_another_Promise]、
+			///[https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/then#Return_value]
+			///promise会resolve到底，多层promise会成为一个
+		})()
+		///可能出来的不是async generator，而是promise chain
+		///试一下关键字写法，是否可以通过throw来reject
+		///结果：throw不会隐含处理成reject，上面的代码会产生一个Uncaught thrown，之后resolve
+		///**Errors thrown inside asynchronous functions will act like uncaught errors**[https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/catch#Gotchas_when_throwing_errors]
+		const tryRejectWithThrowing=skip=true||(()=>{
+			await(async()=>setTimeout(()=>console.log("resolve"),2e3))() ///单setTimeout是不会等待的
+			///参照`tryRejectPromiseBeforeResolve`的promise
+			new Promise((resolve,reject)=>{
+				setTimeout(()=>resolve(console.log("resolve")),2e3)
+				setTimeout(()=>{throw new Error("thrown")},1e3)})
+				.catch(()=>console.log("catch"))
+				.then(()=>console.log("fulfilled"),reason=>console.log("rejected"))
+		})()
+		///但是反过来reject是可以catch的
+		///所以虽然不能用throw代替reject，但似乎处理两者的语法可以通用？
+		///这段代码参考自[https://stackoverflow.com/a/47995824], thants to @OzzyTheGiant
+		const tryCatchingFromRejecting=skip=true||(async()=>{
+			const foo=async (id) => {
+				return new Promise(function(resolve,reject) {
+				setTimeout(()=>{
+					// execute some code here
+					if(false) { // let's say this is a boolean value from line above
+						return resolve("success");
+					} else {
+						return reject("error"); // this can be anything, preferably an Error object to catch the stacktrace from this function
+					}},2e3)
+				});
+			}
+			const bar=async () => {
+				try {
+					var result=await foo("someID")
+					console.log("not cautched")
+					console.log(result)
+					// use the result here
+				} catch(error) {
+					// handle error here
+					console.log("cautched")
+					console.log(result)
+				}
+			}
+			await bar()
+		})()
+		const tryImplement=(()=>{
+			///先做一层试一下
+			const manualOperating=()=>{}
+		})()
 	})()
 	const setup=(()=>{
 		const config=(()=>{
@@ -1008,7 +1016,7 @@ var dummy=(()=>{
 			const getGift=a=>(a.quantity>1?a.quantity+a.quantifier:"")+a.gift.name
 			///一句赋值多个的短写法：[aa,bb]=[1,22]
 			const thanking=a=>(gift=getGift(a),`谢谢「${a.user}」的${gift}！嚒嚒哒爱你哟`)
-			const answer=a=>a instanceof room.chat.Welcome?welcome(a):a instanceof room.chat.Gift?thanking(a):console.error(a)
+			const answer=a=>a instanceof room.wrapper.chat.Welcome?welcome(a):a instanceof room.wrapper.chat.Gift?thanking(a):console.error(a)
 			const general={messages:[[],0],answer}
 			const 雷哥=(()=>{
 				const roomName="雷哥直播间"
@@ -1117,7 +1125,7 @@ var dummy=(()=>{
 				const welcome=a=>(friend=getFriend(a.user))?`欢迎${friend}回到${roomName}！`:`欢迎「${a.user}」来到${roomName}！点点关注刷刷礼物爱你哟`
 				const getGift=a=>(a.quantity>1?a.quantity+a.quantifier:"")+a.gift.name
 				const thanking=a=>(gift=getGift(a),(friend=getFriend(a.user))?`谢谢${friend}的${gift}！${friend}辛苦啦嚒嚒哒`:`谢谢「${a.user}」的${gift}！嚒嚒哒爱你哟`)
-				const answer=a=>a instanceof room.chat.Welcome?welcome(a):a instanceof room.chat.Gift?thanking(a):console.error(a)
+				const answer=a=>a instanceof room.wrapper.chat.Welcome?welcome(a):a instanceof room.wrapper.chat.Gift?thanking(a):console.error(a)
 				return{messages,answer}
 			})()
 			const 秀秀=(()=>{
@@ -1132,7 +1140,7 @@ var dummy=(()=>{
 				const getGift=a=>(a.quantity>1?a.quantity+a.quantifier:"")+a.gift.name
 				const thanking=a=>(gift=getGift(a),(friend=getFriend(a.user))?`谢谢${friend}的${gift}！`:undefined)
 				const answer=a=>{
-					return a instanceof room.chat.Welcome?welcome(a):a instanceof room.chat.Gift?thanking(a):console.error(a)
+					return a instanceof room.wrapper.chat.Welcome?welcome(a):a instanceof room.wrapper.chat.Gift?thanking(a):console.error(a)
 				}
 				return{messages:[[],0],answer}
 			})()
@@ -1159,11 +1167,12 @@ var dummy=(()=>{
 				const welcome=a=>(friend=getFriend(a.user))?`${friend}回来啦！`:undefined
 				const getGift=a=>(a.quantity>1?a.quantity+a.quantifier:"")+a.gift.name
 				const thanking=a=>(gift=getGift(a),(friend=getFriend(a.user))?`谢谢${friend}的${gift}！`:undefined)
-				const answer=a=>a instanceof room.chat.Welcome?welcome(a):a instanceof room.chat.Gift?thanking(a):console.error(a)
+				const answer=a=>a instanceof room.wrapper.chat.Welcome?welcome(a):a instanceof room.wrapper.chat.Gift?thanking(a):console.error(a)
 				return{messages:[[],0],answer}
 			})()
-			const id=room.id
-			return true?test:id==5095833?雷哥FriendsOnly:id==5457742?秀秀:id==678804?"亚男老师的音乐直播间":
+			const empty=runTest={messages:[[],0],answer:()=>{}}
+			const id=room.wrapper.id
+			return true?empty:id==5095833?雷哥FriendsOnly:id==5457742?秀秀:id==678804?"亚男老师的音乐直播间":
 				id==217331?"表哥直播间":id==5074415?"半支烟直播间":id==6119609?"编程直播间"
 					:general
 		})()
