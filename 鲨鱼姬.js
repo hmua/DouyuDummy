@@ -17,6 +17,7 @@
 - class啰嗦，并且**不能嵌套**，也是只能做数据
 */
 var dummy=(()=>{
+	var skipTests=true
 	///ES6 Iterators, RxJS, IxJS and the Async Iterators proposal https://blog.scottlogic.com/2016/06/29/es6-iterators.html
 	const array={
 		zip:(a,b)=>a.map((a,i) =>[a,b[i]])
@@ -102,7 +103,6 @@ var dummy=(()=>{
 				//Promise {<resolved>: {…}} ///**异步生成器的每个`next()`得到的是Promise**
 				})()
 		})()
-		var skipTests=true
 		///发现了什么？对不是async函数也可以await，就是说处理异步迭代的代码可以直接处理非异步的
 		///那是不是**所有非异步代码都直接是异步的**呢？？
 		///所以可能要把完全没必要异步的函数重写成非异步的
@@ -169,7 +169,7 @@ var dummy=(()=>{
 		const testReduce=skipTests||logTest(reduce(take(numbers(),11),(i,s)=>[i+s,i+s]))
 		
 		///似乎`setTimeout`就是异步的，区别是Promise可以await，setTimeout不能
-		const timeoutPromise=(delay=1e3,f=()=>{})=>new Promise((resolve,reject)=>setTimeout(()=>resolve(f()),delay))
+		const timeoutPromise=(delay=1e3,f=()=>{})=>new Promise(r=>setTimeout(()=>r(f()),delay))
 		///[流]模组，命名参考F#的STREAM，概念可能也一致，代码上没有参考（并不是不想参考，只是先自己写写看）
 		///流在内部管理一个异步迭代
 		///流就像一个水流，可以进行截断、积蓄、分流并流等
@@ -412,7 +412,15 @@ var dummy=(()=>{
 		})()
 		const p=Object.getPrototypeOf(async function*(){}).prototype
 		p.preload=preload
-		return{map,filter,collect,preload,timeoutPromise}
+		
+		///TODO:这个函数可能需要整理合并
+		const checkFrequently=function*(check,interval=1000){while(true)yield timeoutPromise(interval,check)}
+		const testCheckFrequently=skipTests||(async()=>{
+			const a=checkFrequently(room.manualOperating)
+			for await(const b of a)console.log(b)
+		})()
+
+		return{map,filter,collect,preload,checkFrequently}
 	})()
 	const douyu={
 		gifts:(()=>{
@@ -823,21 +831,6 @@ var dummy=(()=>{
 		const prioritize=interval=>{
 			//const watchingCloudStack=(...levels)=>{for(const state of levels)if(state)return state}
 			//const testWatchingCloudStack=()=>console.assert(watchingCloudStack(false,undefined,"Bling!",false)=="Bling!")
-			const checkFrequently=(check,checkInterval=1000)=>{
-				class Controller{
-					constructor(check){
-						this.check=check
-					}
-					next(){return new Promise(resolve=>setTimeout(()=>resolve({value:check(),done:false}),checkInterval))}
-					[Symbol.asyncIterator](){return{next:()=>this.next()}}
-				}
-				return new Controller(check)
-			}
-			var skipTests=false
-			const testCheckFrequently=skipTests||(async()=>{
-				const a=checkFrequently(room.manualOperating)
-				for await(const b of a)console.log(b)
-			})()
 			const tickOnIdleDuration=(inputStating,timer=()=>fakeNaturalTypingDelay(5*1000))=>{
 				let idleStartedOn//无输入内容开始时间
 				let isRecentlyInputing=()=>idleStartedOn==undefined
@@ -853,12 +846,12 @@ var dummy=(()=>{
 				}
 				return f(inputStating)
 			}
-			const testTickOnIdleDuration=async()=>{
-				const a=checkFrequently(room.manualOperating)
+			const testTickOnIdleDuration=skipTests||(async()=>{
+				const a=asyncIterator.checkFrequently(room.manualOperating)
 				const c=tickOnIdleDuration(a)
 				for await(const value of c)console.log(value)
-			}
-			const inputStating=checkFrequently(room.manualOperating,1000/3)
+			})()
+			const inputStating=asyncIterator.checkFrequently(room.manualOperating,1000/3)
 			return tickOnIdleDuration(inputStating,()=>fakeNaturalTypingDelay(interval))
 		}
 		const autoAnswering=async function*(receiving){
@@ -890,7 +883,7 @@ var dummy=(()=>{
 			///这个逻辑**都在本函数内**，调用本函数时只需要等待下一条消息的输入完成——甚至也许是用户手工输入的
 			for await(const a of prioritize(packaging(receiving)))yield a
 		}
-		const ticks=prioritize(11e3)
+		const ticks=prioritize(2e3)
 		/////TODO:要把自动应答和广播放到一个时间线
 		/////-	广播默认优先级最低，但如果长时间没广播会随时间提高优先级
 		/////TODO:支持一组连续的发言
