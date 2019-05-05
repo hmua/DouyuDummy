@@ -168,6 +168,7 @@ var dummy=(()=>{
 		const reduce=async function*(l,f,initial=0){let memory=initial;for await(const i of l){const[r,state]=f(i,memory);memory=state;yield r}}
 		const testReduce=skipTests||logTest(reduce(take(numbers(),11),(i,s)=>[i+s,i+s]))
 		
+		var skipTests=true
 		///似乎`setTimeout`就是异步的，区别是Promise可以await，setTimeout不能
 		const timeoutPromise=(delay=1e3,f=()=>{})=>new Promise(r=>setTimeout(()=>r(f()),delay))
 		///[流]模组，命名参考F#的STREAM，概念可能也一致，代码上没有参考（并不是不想参考，只是先自己写写看）
@@ -414,13 +415,30 @@ var dummy=(()=>{
 		p.preload=preload
 		
 		///TODO:这个函数可能需要整理合并
-		const checkFrequently=function*(check,interval=1000){while(true)yield timeoutPromise(interval,check)}
-		const testCheckFrequently=skipTests||(async()=>{
-			const a=checkFrequently(room.manualOperating)
+		const frequently=function*(check,interval=1000){while(true)yield timeoutPromise(interval,check)}
+		const testFrequently=skipTests||(async()=>{
+			const a=frequently(room.manualOperating)
 			for await(const b of a)console.log(b)
 		})()
 
-		return{map,filter,collect,preload,checkFrequently}
+		const tickOnChange=async function*(generator,previous){
+			a=(await generator.next()).value
+			if(a!=previous)yield a
+			yield*tickOnChange(generator,a)
+		}
+		const testTickOnChange=skipTests||(async()=>{
+			const a=async function*(){
+				yield true;await timeoutPromise();
+				yield true;await timeoutPromise();
+				yield false ;await timeoutPromise();
+				yield false;await timeoutPromise();
+				yield true;await timeoutPromise();
+				yield false;await timeoutPromise();
+				yield true;await timeoutPromise();}
+			for await(const b of tickOnChange(a()))console.log(b)
+		})()
+
+		return{map,filter,collect,preload,frequently}
 	})()
 	const douyu={
 		gifts:(()=>{
@@ -819,16 +837,7 @@ var dummy=(()=>{
 			//})()
 			return resolutionThroughWatchingInput(source,interval)
 		}
-		/*
-			同一时间只能做一件事的优先级策略
-			像在晴朗多云天气 从行驶的飞机 向下看
-			透过四层云层 以垂直方向看地面
-
-			四层云层任何一层如果有云 就会遮挡住地面
-			上面三层任何一层如果有云 就会遮住最下面一层
-			以此类推
-		*/
-		const prioritize=interval=>{
+		const tickOnIdle=interval=>{
 			//const watchingCloudStack=(...levels)=>{for(const state of levels)if(state)return state}
 			//const testWatchingCloudStack=()=>console.assert(watchingCloudStack(false,undefined,"Bling!",false)=="Bling!")
 			const tickOnIdleDuration=(inputStating,timer=()=>fakeNaturalTypingDelay(5*1000))=>{
@@ -847,11 +856,11 @@ var dummy=(()=>{
 				return f(inputStating)
 			}
 			const testTickOnIdleDuration=skipTests||(async()=>{
-				const a=asyncIterator.checkFrequently(room.manualOperating)
+				const a=asyncIterator.frequently(room.manualOperating)
 				const c=tickOnIdleDuration(a)
 				for await(const value of c)console.log(value)
 			})()
-			const inputStating=asyncIterator.checkFrequently(room.manualOperating,1000/3)
+			const inputStating=asyncIterator.frequently(room.manualOperating,1000/3)
 			return tickOnIdleDuration(inputStating,()=>fakeNaturalTypingDelay(interval))
 		}
 		const autoAnswering=async function*(receiving){
@@ -883,7 +892,7 @@ var dummy=(()=>{
 			///这个逻辑**都在本函数内**，调用本函数时只需要等待下一条消息的输入完成——甚至也许是用户手工输入的
 			for await(const a of prioritize(packaging(receiving)))yield a
 		}
-		const ticks=prioritize(2e3)
+		const ticks=tickOnIdle(interval)
 		/////TODO:要把自动应答和广播放到一个时间线
 		/////-	广播默认优先级最低，但如果长时间没广播会随时间提高优先级
 		/////TODO:支持一组连续的发言
@@ -894,6 +903,15 @@ var dummy=(()=>{
 		//;(async()=>{for await(const _ of ticks2)if(a=answer(answerings.next().value))send(a)})()
 	}
 	const promisedTimeline=(()=>{
+		///备忘一下原优先级模型
+		////同一时间只能做一件事的优先级策略
+		////像在晴朗多云天气 从行驶的飞机 向下看
+		////透过四层云层 以垂直方向看地面
+
+		////四层云层任何一层如果有云 就会遮挡住地面
+		////上面三层任何一层如果有云 就会遮住最下面一层
+		////以此类推
+
 		///动态时间线：从外部控制发言等待时间
 		///模拟输入弹幕时间，等待直播间发言间隔（发送按钮冷却）
 		///连续发言间隔时间短
