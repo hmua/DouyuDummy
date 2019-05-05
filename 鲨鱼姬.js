@@ -169,6 +169,7 @@ var dummy=(()=>{
 		
 		///似乎`setTimeout`就是异步的，区别是Promise可以await，setTimeout不能
 		const timeoutPromise=(delay=1e3,f=()=>{})=>new Promise(r=>setTimeout(()=>r(f()),delay))
+		const timeoutPromiseTest=passed=true||(async()=>console.assert(await timeoutPromise(12,()=>123)==123))()
 		///[流]模组，命名参考F#的STREAM，概念可能也一致，代码上没有参考（并不是不想参考，只是先自己写写看）
 		///流在内部管理一个异步迭代
 		///流就像一个水流，可以进行截断、积蓄、分流并流等
@@ -440,7 +441,7 @@ var dummy=(()=>{
 			for await(const b of tickOnChange(a()))console.log(b)
 		})()
 
-		return{map,filter,collect,preload,frequently}
+		return{map,filter,collect,preload,timeoutPromise,frequently,tickOnChange}
 	})()
 	const douyu={
 		gifts:(()=>{
@@ -472,11 +473,11 @@ var dummy=(()=>{
 			return Object.keys(a).map(k=>{const i=a[k];i.unshift(k);return new Gift(...i)})
 		})(),
 		getGiftIdFromUrl:url=>(a=url.lastIndexOf("."),url.slice(url.lastIndexOf("/",a)+1,a)),
-		testGetGiftIdFromUrl:()=>(a=douyu.getGiftIdFromUrl("https://gfs-op.douyucdn.cn/dygift/1808/5163e0b5c3d9b33cf2ab0ff9d02a0956.gif?x-oss-process=image/format,webp")
+		testGetGiftIdFromUrl:()=>passed=true||(a=douyu.getGiftIdFromUrl("https://gfs-op.douyucdn.cn/dygift/1808/5163e0b5c3d9b33cf2ab0ff9d02a0956.gif?x-oss-process=image/format,webp")
 			,console.assert(a=="5163e0b5c3d9b33cf2ab0ff9d02a0956",a)),
 		getGiftfromUrl:a=>(id=douyu.getGiftIdFromUrl(a),douyu.gifts.find(i=>i.id instanceof Array?i.id.includes(id):i.id==id)||
 			(console.error(a),{name:"礼物",quantifier:"个",score:Number.MAX_SAFE_INTEGER})),
-		testGetGiftfromUrl:()=>[
+		testGetGiftfromUrl:()=>passed=true||[
 			douyu.getGiftfromUrl("42669592fba5a9c067614dee8feea7de"),
 			douyu.getGiftfromUrl("296d39b7951a249d6f640ed58cfacb67")]}
 	const room=(()=>{
@@ -532,18 +533,18 @@ var dummy=(()=>{
 						}
 						return new Controller()
 					}
-					const testEventIterator=async()=>{
+					const testEventIterator=passed=true||(async()=>{
 						document.body.insertAdjacentHTML("beforeEnd","<input/>")
 						const t=document.body.lastChild;
 						for await(const a of eventIterator(t,"input"))console.log(a)
-					}
+					})()
 					const onMessageReceived=()=>{
 						const a=eventIterator(list,"DOMNodeInserted")
 						return asyncIterator.collect(a,sort)
 					}
-					const testOnMessageReceived=async()=>{
+					const testOnMessageReceived=passed=true||(async()=>{
 						for await(const a of onMessageReceived())console.log(a)
-					}
+					})()
 					return onMessageReceived()
 				})()
 				//注意此方法不会自动检查是否能发言 要明确检查冷却时间等
@@ -599,10 +600,14 @@ var dummy=(()=>{
 			}
 		})()
 		const manualOperating=()=>(
-			isSpeakCooling=()=>room.wrapper.chat.speak.getRoomMsgCd()>0,
-			isUserOperating=room.wrapper.user.isOperating,
+			isSpeakCooling=()=>wrapper.chat.speak.getRoomMsgCd()>0,
+			isUserOperating=wrapper.user.isOperating,
 			isSpeakCooling()||isUserOperating()
 		)
+		const manualOperating2=()=>asyncIterator.tickOnChange(asyncIterator.frequently(manualOperating))
+		const manualOperating2Test=passed=true||(async()=>{
+			for await(a of manualOperating2())console.log(a)
+		})()
 		return{wrapper,manualOperating}
 	})()
 	///增强直播间 降低CPU占用 放大聊天栏
@@ -727,7 +732,7 @@ var dummy=(()=>{
 			let stop=()=>{console.log("STOP");clearTimeout(delaySend)}
 			return{stop}
 		}
-		const testBatchSendMessage=()=>batchSendMessage([
+		const testBatchSendMessage=()=>passed=true||batchSendMessage([
 				"[emot:dy108][emot:dy108]",
 				"[emot:dy121][emot:dy121]",
 				"[emot:dy002][emot:dy002]",
@@ -794,11 +799,11 @@ var dummy=(()=>{
 					}
 					return new Controller(target)
 				}
-				let testCheckInputStateFrequently=async()=>{
+				let testCheckInputStateFrequently=passed=true||(async()=>{
 					document.body.insertAdjacentHTML("beforeEnd","<input/>")
 					const iter=checkInputStateFrequently(document.body.lastChild)
 					for await(const value of iter)console.log(value)
-				}
+				})()
 				let tickOnIdleDuration=(source,timer=()=>fakeNaturalTypingDelay(5*1000))=>{
 					let idleStartedOn//无输入内容开始时间
 					let isRecentlyInputing=()=>idleStartedOn==undefined
@@ -814,12 +819,12 @@ var dummy=(()=>{
 					}
 					return f(source)
 				}
-				let testTickOnIdleDuration=async()=>{
+				let testTickOnIdleDuration=passed=true||(async()=>{
 					document.body.insertAdjacentHTML("beforeEnd","<input/>")
 					const b=checkInputStateFrequently(document.body.lastChild)
 					const c=tickOnIdleDuration(b)
 					for await(const value of c)console.log(value)
-				}
+				})()
 				//testCheckInputStateFrequently()
 				//testTickOnIdleDuration()
 				const b=checkInputStateFrequently(source,1000/3)
@@ -848,9 +853,9 @@ var dummy=(()=>{
 				let rememberInputing=()=>{idleStartedOn=undefined}
 				let startIdle=()=>idleStartedOn=Date.now()+timer()
 				let intervalTicked=()=>Date.now()>=idleStartedOn
-				let f=async function*(inputStating){
-					for await(var isInputing of inputStating) {
-						if(isInputing)rememberInputing()
+				let f=async function*(operatingStating){
+					for await(var isOperating of operatingStating) {
+						if(isOperating)rememberInputing()
 						else if(isRecentlyInputing())startIdle()
 							else if(intervalTicked())(startIdle(),yield undefined)
 					}
@@ -894,7 +899,7 @@ var dummy=(()=>{
 			///这个逻辑**都在本函数内**，调用本函数时只需要等待下一条消息的输入完成——甚至也许是用户手工输入的
 			for await(const a of prioritize(packaging(receiving)))yield a
 		}
-		const ticks=tickOnIdle(interval)
+		//const ticks=tickOnIdle(interval)
 		/////TODO:要把自动应答和广播放到一个时间线
 		/////-	广播默认优先级最低，但如果长时间没广播会随时间提高优先级
 		/////TODO:支持一组连续的发言
@@ -903,125 +908,149 @@ var dummy=(()=>{
 		//const ticks2=prioritize(11e3),answerings=autoAnswering(room.wrapper.chat.list)
 		////;(async()=>{for await(const a of answerings)send(a)})()
 		//;(async()=>{for await(const _ of ticks2)if(a=answer(answerings.next().value))send(a)})()
-	}
-	const promisedTimeline=(()=>{
-		///备忘一下原优先级模型
-		////同一时间只能做一件事的优先级策略
-		////像在晴朗多云天气 从行驶的飞机 向下看
-		////透过四层云层 以垂直方向看地面
+		const timeline=()=>{
+			////备忘一下原优先级模型
+			////同一时间只能做一件事的优先级策略
+			////像在晴朗多云天气 从行驶的飞机 向下看
+			////透过四层云层 以垂直方向看地面
 
-		////四层云层任何一层如果有云 就会遮挡住地面
-		////上面三层任何一层如果有云 就会遮住最下面一层
-		////以此类推
+			////四层云层任何一层如果有云 就会遮挡住地面
+			////上面三层任何一层如果有云 就会遮住最下面一层
+			////以此类推
 
-		///动态时间线：从外部控制发言等待时间
-		///模拟输入弹幕时间，等待直播间发言间隔（发送按钮冷却）
-		///连续发言间隔时间短
-		///根据直播间弹幕密度来控制广播频次，有人弹幕但频次低时少插话（可以进一步判断是不是水友正在对谈）
-		///手动操作打断自动操作
-		///直播间弹幕太少时发一些召唤性质弹幕（在线的抱棵树）
-		///自动发言时
-		///1. 等待一个需要回复的消息（感谢礼物、回答问题等），发回复
-		///2. 如果等待半分钟没有需要及时回复的消息，并且直播间其它水友已经发送了五条左右弹幕，则发滚动消息（公告、预告等）
-		///3. 根据发言内容模拟输入时间
-		///	- 如果输入时，有更优先的消息，是否要打断当前输入？
-		///4. 如果模拟输入时间期间，用户进行手动操作，则取消本次自动发言，等操作完从第一步重新开始
-		///5. 如果模拟输入时间结束，发言按钮没冷却，等待冷却
-		///6. 发送
-		///7. 如果有连续发言，继续模拟输入下一句，等待发言间隔后继续发送
-		///8. 回到第一步等待下一个自动发言
-		///以及——是不是要动态调整发言顺序和分组？
-		///除了排优先级，除了预编好的连续公告之外，如果一个水友连续发了几个火箭，是不是应该尽量连续感谢？
-		///纯粹的动态时间线是不是假命题？可能必须要和发言内容一起控制
+			///动态时间线：从外部控制发言等待时间
+			///模拟输入弹幕时间，等待直播间发言间隔（发送按钮冷却）
+			///连续发言间隔时间短
+			///根据直播间弹幕密度来控制广播频次，有人弹幕但频次低时少插话（可以进一步判断是不是水友正在对谈）
+			///手动操作打断自动操作
+			///直播间弹幕太少时发一些召唤性质弹幕（在线的抱棵树）
+			///自动发言时
+			///1. 等待一个需要回复的消息（感谢礼物、回答问题等），发回复
+			///2. 如果等待半分钟没有需要及时回复的消息，并且直播间其它水友已经发送了五条左右弹幕，则发滚动消息（公告、预告等）
+			///3. 根据发言内容模拟输入时间
+			///	- 如果输入时，有更优先的消息，是否要打断当前输入？
+			///4. 如果模拟输入时间期间，用户进行手动操作，则取消本次自动发言，等操作完从第一步重新开始
+			///5. 如果模拟输入时间结束，发言按钮没冷却，等待冷却
+			///6. 发送
+			///7. 如果有连续发言，继续模拟输入下一句，等待发言间隔后继续发送
+			///8. 回到第一步等待下一个自动发言
+			///以及——是不是要动态调整发言顺序和分组？
+			///除了排优先级，除了预编好的连续公告之外，如果一个水友连续发了几个火箭，是不是应该尽量连续感谢？
+			///纯粹的动态时间线是不是假命题？可能必须要和发言内容一起控制
 
-		///当前prioritize函数等于实现了第二条，等于现在要用promise重写prioritize
-		///可能有两个写法，一是原来用的，逐层状态检查，二是用promise，哪个更好？如果可行的话显然应该选promise
-		///所有操作都是promise
-		///当自动发一条发言时，发言结束时即resolve
-		///当用户手动操作时，操作结束即resolve
-		///当更高优先级的发言打断当前发言时reject
-		///尝试提前reject一个promise
-		const tryRejectPromiseBeforeResolve=skip=true||(async()=>{
-			console.log("promise 1")
-			await new Promise((resolve,reject)=>setTimeout(()=>resolve(console.log("resolve")),2e3)).then(()=>console.log("then"))
-			console.log("reject before resolve")
-			///先reject就只会触发catch，then和catch只会触发一个
-			await new Promise((resolve,reject)=>{
-				setTimeout(()=>resolve(console.log("resolve")),2e3)
-				setTimeout(()=>reject(console.log("reject")),1e3)}).then(()=>console.log("then")).catch(()=>console.log("catch"))
-			console.log("resolve/reject outside")
-			var promiseResolve,promiseReject
-			new Promise(function(resolve, reject){
-				promiseResolve=()=>resolve(console.log("resolve"))
-				promiseReject=reject
-			})
-			promiseResolve()
-		})()
-		///现在变成，优先级更高的工作向下打断现有promise
-		///一个工作结束后一定会启用下一个promise安排下一个工作，因此任何时间一定会有一个promise存在
-		///用户手动操作是监听界面resolve
-		///因为内部仍然是操作promise，最后对外出来的应该仍然是async generator
-		const tryPromiseFeedbackPromise=skip=true||(()=>{
-			new Promise((resolve,reject)=>setTimeout(()=>resolve((console.log("resolve"),"value from promise")),2e3))
-				.then(a=>(console.log("then"),console.log(a)))
-			console.log("promise returns another promise")
-			new Promise((resolve,reject)=>setTimeout(()=>resolve((console.log("resolve"),
-				new Promise((resolve,reject)=>setTimeout(()=>resolve((console.log("resolve2"),
-					new Promise((resolve,reject)=>setTimeout(()=>resolve((console.log("resolve3"),"value from promise3")),2e3))
+			///当前prioritize函数等于实现了第二条，等于现在要用promise重写prioritize
+			///可能有两个写法，一是原来用的，逐层状态检查，二是用promise，哪个更好？如果可行的话显然应该选promise
+			///所有操作都是promise
+			///当自动发一条发言时，发言结束时即resolve
+			///当用户手动操作时，操作结束即resolve
+			///当更高优先级的发言打断当前发言时reject
+			///尝试提前reject一个promise
+			const tryRejectPromiseBeforeResolve=skip=true||(async()=>{
+				console.log("promise 1")
+				await new Promise((resolve,reject)=>setTimeout(()=>resolve(console.log("resolve")),2e3)).then(()=>console.log("then"))
+				console.log("reject before resolve")
+				///先reject就只会触发catch，then和catch只会触发一个
+				await new Promise((resolve,reject)=>{
+					setTimeout(()=>resolve(console.log("resolve")),2e3)
+					setTimeout(()=>reject(console.log("reject")),1e3)}).then(()=>console.log("then")).catch(()=>console.log("catch"))
+				console.log("resolve/reject outside")
+				var promiseResolve,promiseReject
+				new Promise(function(resolve, reject){
+					promiseResolve=()=>resolve(console.log("resolve"))
+					promiseReject=reject
+				})
+				promiseResolve()
+			})()
+			///现在变成，优先级更高的工作向下打断现有promise
+			///一个工作结束后一定会启用下一个promise安排下一个工作，因此任何时间一定会有一个promise存在
+			///用户手动操作是监听界面resolve
+			///因为内部仍然是操作promise，最后对外出来的应该仍然是async generator
+			const tryPromiseFeedbackPromise=skip=true||(()=>{
+				new Promise((resolve,reject)=>setTimeout(()=>resolve((console.log("resolve"),"value from promise")),2e3))
+					.then(a=>(console.log("then"),console.log(a)))
+				console.log("promise returns another promise")
+				new Promise((resolve,reject)=>setTimeout(()=>resolve((console.log("resolve"),
+					new Promise((resolve,reject)=>setTimeout(()=>resolve((console.log("resolve2"),
+						new Promise((resolve,reject)=>setTimeout(()=>resolve((console.log("resolve3"),"value from promise3")),2e3))
+					)),2e3))
 				)),2e3))
-			)),2e3))
-				.then(a=>(console.log("then"),console.trace(a)))
-			///参照[https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/resolve#Resolving_another_Promise]、
-			///[https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/then#Return_value]
-			///promise会resolve到底，多层promise会成为一个
-		})()
-		///可能出来的不是async generator，而是promise chain
-		///试一下关键字写法，是否可以通过throw来reject
-		///结果：throw不会隐含处理成reject，上面的代码会产生一个Uncaught thrown，之后resolve
-		///**Errors thrown inside asynchronous functions will act like uncaught errors**[https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/catch#Gotchas_when_throwing_errors]
-		const tryRejectWithThrowing=skip=true||(()=>{
-			await(async()=>setTimeout(()=>console.log("resolve"),2e3))() ///单setTimeout是不会等待的
-			///参照`tryRejectPromiseBeforeResolve`的promise
-			new Promise((resolve,reject)=>{
-				setTimeout(()=>resolve(console.log("resolve")),2e3)
-				setTimeout(()=>{throw new Error("thrown")},1e3)})
-				.catch(()=>console.log("catch"))
-				.then(()=>console.log("fulfilled"),reason=>console.log("rejected"))
-		})()
-		///但是反过来reject是可以catch的
-		///所以虽然不能用throw代替reject，但似乎处理两者的语法可以通用？
-		///这段代码参考自[https://stackoverflow.com/a/47995824], thants to @OzzyTheGiant
-		const tryCatchingFromRejecting=skip=true||(async()=>{
-			const foo=async (id) => {
-				return new Promise(function(resolve,reject) {
-				setTimeout(()=>{
-					// execute some code here
-					if(false) { // let's say this is a boolean value from line above
-						return resolve("success");
-					} else {
-						return reject("error"); // this can be anything, preferably an Error object to catch the stacktrace from this function
-					}},2e3)
-				});
-			}
-			const bar=async () => {
-				try {
-					var result=await foo("someID")
-					console.log("not cautched")
-					console.log(result)
-					// use the result here
-				} catch(error) {
-					// handle error here
-					console.log("cautched")
-					console.log(result)
+					.then(a=>(console.log("then"),console.trace(a)))
+				///参照[https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/resolve#Resolving_another_Promise]、
+				///[https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/then#Return_value]
+				///promise会resolve到底，多层promise会成为一个
+			})()
+			///可能出来的不是async generator，而是promise chain
+			///试一下关键字写法，是否可以通过throw来reject
+			///结果：throw不会隐含处理成reject，上面的代码会产生一个Uncaught thrown，之后resolve
+			///**Errors thrown inside asynchronous functions will act like uncaught errors**[https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/catch#Gotchas_when_throwing_errors]
+			const tryRejectWithThrowing=skip=true||(()=>{
+				await(async()=>setTimeout(()=>console.log("resolve"),2e3))() ///单setTimeout是不会等待的
+				///参照`tryRejectPromiseBeforeResolve`的promise
+				new Promise((resolve,reject)=>{
+					setTimeout(()=>resolve(console.log("resolve")),2e3)
+					setTimeout(()=>{throw new Error("thrown")},1e3)})
+					.catch(()=>console.log("catch"))
+					.then(()=>console.log("fulfilled"),reason=>console.log("rejected"))
+			})()
+			///但是反过来reject是可以catch的
+			///所以虽然不能用throw代替reject，但似乎处理两者的语法可以通用？
+			///这段代码参考自[https://stackoverflow.com/a/47995824], thants to @OzzyTheGiant
+			const tryCatchingFromRejecting=skip=true||(async()=>{
+				const foo=async (id) => {
+					return new Promise(function(resolve,reject) {
+					setTimeout(()=>{
+						// execute some code here
+						if(false) { // let's say this is a boolean value from line above
+							return resolve("success");
+						} else {
+							return reject("error"); // this can be anything, preferably an Error object to catch the stacktrace from this function
+						}},2e3)
+					});
 				}
+				const bar=async () => {
+					try {
+						var result=await foo("someID")
+						console.log("not cautched")
+						console.log(result)
+						// use the result here
+					} catch(error) {
+						// handle error here
+						console.log("cautched")
+						console.log(result)
+					}
+				}
+				await bar()
+			})()
+			/*
+			会有个问题，自动应答消息池、或者集合，是否要共享给广播？
+			也就是说会不会出现广播消息优先级比自动应答更高的情况？很可能会有的
+			就是说不是做一个这层级间逐级判断
+			而是所有消息放到一个池中再排优先级
+			大致有几种发言：
+				自动应答，不会有一条答一条，在需要应答的比较多时，根据具体内容计算优先级，包括
+				-	感谢礼物、升级、感谢光临等
+				-	回答提问，如游戏名等
+				公告：包括节目预告等，会有个预定发布间隔，到预定时间时会有高优先级，非预定时间优先级低，没有其它高优先级发言时会发
+				起哄（凑热闹）：水友大量发相同内容弹幕时，加入一起发，包括抽奖的情况，优先级最高
+				带动发言：长时间没有水友发言时，发类似“在线的报个数”内容，仍然没有水友发言的话，发公告或者填补空白的无意义表情
+			从发言池中取出下一条发言（并开始等待模拟输入时间）后
+			如果有新的更高优先级的发言，可以打断当前等待
+
+			发言的时机是动态时间线要解决的问题
+			当正在输入一条自动应答时，如果发现起哄，会取消应答开始加入起哄
+			*/
+			const implement=async function*(room){
+				///先做一层试一下
+				const manualOperating={}
+				const autoAnswering=()=>{}
+				const broadcasting=()=>asyncIterator.timeoutPromise(5e3,()=>"大家好！")
+				const roll=()=>{return broadcasting()}
+				while(true)yield roll()
 			}
-			await bar()
-		})()
-		const tryImplement=(()=>{
-			///先做一层试一下
-			const manualOperating=()=>{}
-		})()
-	})()
+			return implement()
+		}
+		;(async()=>{for await(const a of promisedTimeline())send(a)})()
+	}
 	const setup=(()=>{
 		const config=(()=>{
 			const roomName="直播间"
@@ -1046,10 +1075,10 @@ var dummy=(()=>{
 									if(b.done)return
 									else yield b.value
 									}}}}
-					const testInterweave=()=>{
+					const testInterweave=passed=true||(()=>{
 						let a=interweave([[["M","F"][Symbol.iterator](),1],[["Jack","Bob","Rock","Lisa"][Symbol.iterator](),2],[["数学","物理","化学","语文","英语","历史"][Symbol.iterator](),3]])
 						for(const b of a)console.trace(b)
-					}
+					})()
 					const format=a=>"🚀×"+(++a)
 					const numbers=function*() {
 						let i=0
