@@ -17,7 +17,6 @@
 - class啰嗦，并且**不能嵌套**，也是只能做数据
 */
 var dummy=(()=>{
-	var skipTests=true
 	///ES6 Iterators, RxJS, IxJS and the Async Iterators proposal https://blog.scottlogic.com/2016/06/29/es6-iterators.html
 	const array={
 		zip:(a,b)=>a.map((a,i) =>[a,b[i]])
@@ -109,14 +108,14 @@ var dummy=(()=>{
 		const numbers=(()=>{
 			const recursive=function*(i=0)/*递归*/{yield i++;yield*recursive(i)}
 			///经过测试迭代比递归快很多，大概只用了十几分之一时间，可能是因为优先权
-			const testTryRecursive=skipTests||(a=recursive(),
+			const testTryRecursive=passed=true||(a=recursive(),
 				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:0,done:false}),b),
 				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:1,done:false}),b),
 				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:2,done:false}),b),
 				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:3,done:false}),b),
 				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:4,done:false}),b))
 			const iterate=function*()/*迭代*/{i=0;while(true)yield i++} //需要特别注意外层不能有同名i的变量！
-			const testTryIterate=skipTests||(a=iterate(),
+			const testTryIterate=passed=true||(a=iterate(),
 				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:0,done:false}),b),
 				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:1,done:false}),b),
 				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:2,done:false}),b),
@@ -129,7 +128,7 @@ var dummy=(()=>{
 		const take=async function*(l,count){for(let i=0;i<count;i++)yield(await l.next()).value}
 		///**调用异步函数时，不管这个被调用到的函数里面是否await了，如果调用的函数需要等被调用的函数的话，一定要在调用函数中写await**
 		///还是刚刚理解到这一点……
-		const testTake=skipTests||(async()=>(a=take(numbers(),5),
+		const testTake=passed=true||(async()=>(a=take(numbers(),5),
 			b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:0,done:false}),b),
 			b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:1,done:false}),b),
 			b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:2,done:false}),b),
@@ -140,35 +139,34 @@ var dummy=(()=>{
 			b=await a.next(),console.assert(b.done!=false),b))()
 	
 		const map=async function*(l,f,i=0){const a=await l.next();a.done||(yield f(a.value,i),yield*map(l,f,++i))}
-		const testMap=skipTests||(async()=>(a=(map(numbers(),(i,j)=>[i*11,j*222])),
+		const testMap=passed=true||(async()=>(a=(map(numbers(),(i,j)=>[i*11,j*222])),
 			b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:[0,0],done:false}),b),
 			b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:[11,222],done:false}),b),
 			b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:[22,444],done:false}),b)))
 		//const iter=async function*(l,f){for await(const i of l)f(i)}
 		const iter=async function(l,f,i=0){const a=await l.next();a.done||(f(a.value,i),await iter(l,f,++i))}
-		const testIter=skipTests||(async()=>(a=[],(await iter(take(numbers(),5),(i,j)=>a.push(i*10+j*2))),console.assert(a.length==5,a),
+		const testIter=passed=true||(async()=>(a=[],(await iter(take(numbers(),5),(i,j)=>a.push(i*10+j*2))),console.assert(a.length==5,a),
 			console.assert(a[0]==0,a[0]),console.assert(a[1]==12,a[1]),console.assert(a[2]==24,a[2])))()
 		const filter=(()=>{const f2=async function*(l,f,i=0){for await(const j of l){if(f(j,i))yield j}};return(l,f)=>f2(l,f)})()
-		const testFilter=skipTests||(async()=>(a=filter(numbers(),c=>c%2==0),b=(await a.next()).value,console.assert(b==0,b),
+		const testFilter=passed=true||(async()=>(a=filter(numbers(),c=>c%2==0),b=(await a.next()).value,console.assert(b==0,b),
 			b=(await a.next()).value,console.assert(b==2,b),b=(await a.next()).value,console.assert(b==4,b)))()
 		const skip=(a,l=1)=>l<1?a:(a.next(),skip(a,--l))
-		const testSkip=skipTests||(async()=>(
+		const testSkip=passed=true||(async()=>(
 			b=await skip(numbers(),3).next(),console.assert(JSON.stringify(b)==JSON.stringify({value:3,done:false}),b),
 			b=await skip(numbers(),13).next(),console.assert(JSON.stringify(b)==JSON.stringify({value:13,done:false}),b),
 			b=await skip(numbers(),23).next(),console.assert(JSON.stringify(b)==JSON.stringify({value:23,done:false}),b)))()
 
 		const logTest=async l=>{for await(const i of l)console.log(i)}
 		const filterOutUnfedineds=async function*(l){yield*filter(l,i=>i!=undefined)}
-		const testFilterUndefineds=skipTests||logTest(filterOutUnfedineds(map(take(numbers(),11),c=>c%2==0?`双数：${c}！`:undefined)))
+		const testFilterUndefineds=passed=true||logTest(filterOutUnfedineds(map(take(numbers(),11),c=>c%2==0?`双数：${c}！`:undefined)))
 		///@deprecated remomend to use filterUndedineds explicitly, 这行是留下备忘、作参考的
 		const collect=async function*(a,f){yield*filterOutUnfedineds(map(a,f))}
-		const testCollect=skipTests||logTest(collect(take(numbers(),11),c=>c%2==0?`双数：${c}！`:undefined))
+		const testCollect=passed=true||logTest(collect(take(numbers(),11),c=>c%2==0?`双数：${c}！`:undefined))
 		///scan with state, like F# Seq.scan.
 		///@deprecated 实际用到的不是这条，白写了……还是留下备忘，作参考
 		const reduce=async function*(l,f,initial=0){let memory=initial;for await(const i of l){const[r,state]=f(i,memory);memory=state;yield r}}
-		const testReduce=skipTests||logTest(reduce(take(numbers(),11),(i,s)=>[i+s,i+s]))
+		const testReduce=passed=true||logTest(reduce(take(numbers(),11),(i,s)=>[i+s,i+s]))
 		
-		var skipTests=true
 		///似乎`setTimeout`就是异步的，区别是Promise可以await，setTimeout不能
 		const timeoutPromise=(delay=1e3,f=()=>{})=>new Promise(r=>setTimeout(()=>r(f()),delay))
 		///[流]模组，命名参考F#的STREAM，概念可能也一致，代码上没有参考（并不是不想参考，只是先自己写写看）
@@ -180,7 +178,7 @@ var dummy=(()=>{
 		///实际实现preload方法失败了，现在是packaging打包，以后可以再试试preload
 		///暂存所有收到的，每不固定时间取一次
 		const preload=(()=>{
-			const testTimeoutPromise=skipTests||(async()=>(time=Date.now(),finishTime=Date.now(),
+			const testTimeoutPromise=passed=true||(async()=>(time=Date.now(),finishTime=Date.now(),
 				await timeoutPromise(1e3,()=>finishTime=Date.now()),
 				a=finishTime-time-1e3,console.assert(a<10,a)))()
 			const tryDelayYieldNumbersOld=async function*(interval=1e3){
@@ -188,26 +186,26 @@ var dummy=(()=>{
 			///TODO: 尝试先yield，后等待
 			const tryDelayYieldNumbers=async function*(interval=1e3){
 				for await(const i of numbers())(await timeoutPromise(interval),yield i)}
-			const testDelayYieldNumbers=skipTests||(async()=>(a=tryDelayYieldNumbers(),
+			const testDelayYieldNumbers=passed=true||(async()=>(a=tryDelayYieldNumbers(),
 				b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:0,done:false}),b),
 				b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:1,done:false}),b),
 				b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:2,done:false}),b)))()
 			const tryIntervaledYieldingNumbers=async function*(interval=1e3){
 				for await(const i of numbers())(yield i,await timeoutPromise(interval))}
-			const testIntervaledYieldingNumbers=skipTests||(async()=>(interval=3e3,l=tryIntervaledYieldingNumbers(interval),
+			const testIntervaledYieldingNumbers=passed=true||(async()=>(interval=3e3,l=tryIntervaledYieldingNumbers(interval),
 				a=await l.next(),console.assert(JSON.stringify(a)==JSON.stringify({value:0,done:false}),a),
 				time=Date.now(),
 				a=await l.next(),console.assert(JSON.stringify(a)==JSON.stringify({value:1,done:false}),a),
 				c=Date.now()-time-interval,console.assert(c<10,c),time=Date.now(),
 				a=await l.next(),console.assert(JSON.stringify(a)==JSON.stringify({value:2,done:false}),a),
 				c=Date.now()-time-interval,console.assert(c<10,c)))()
-			const testDelayYieldNumbers_Resuming=skipTests||(()=>{
+			const testDelayYieldNumbers_Resuming=passed=true||(()=>{
 				const a=tryIntervaledYieldingNumbers(8e2),b=[]
 				for(i=3;i--;i>0)b.push(a.next().value)
 				console.assert(b.length==3,b.length)
 				for(i=4;i--;i>0)b.push(a.next().value)
 				console.assert(b.length==7,b.length)})()
-			const testDelayYieldNumbers_Resuming_NotFitting_Failed=skipTests||(async()=>{
+			const testDelayYieldNumbers_Resuming_NotFitting_Failed=passed=true||(async()=>{
 				const a=tryIntervaledYieldingNumbers(6e2)
 				let m=[],endOn=Date.now()+3e3
 				while(Date.now()<endOn)m.push((await a.next()).value) ///3/.6=5
@@ -241,7 +239,7 @@ var dummy=(()=>{
 				while(Date.now()<endOn)m.push((await a.next()).value) ///5.4/.6=9
 				console.log(m)})()
 			///对咯！
-			const testPromiseRace=skipTests||(async()=>{
+			const testPromiseRace=passed=true||(async()=>{
 				const a=tryDelayYieldNumbers(6e3)
 				let pause,promiseToPause=new Promise(resolve=>{pause=resolve})
 				console.trace(await Promise.race([a.next(),promiseToPause]))
@@ -252,7 +250,7 @@ var dummy=(()=>{
 			////JS pause yield
 			////JS yield rejected again
 			////JS promise rejected again
-			const testDelayYieldNumbers_PausingResumingWithPromiseRace=skipTests||(async()=>{
+			const testDelayYieldNumbers_PausingResumingWithPromiseRace=passed=true||(async()=>{
 				const a=tryDelayYieldNumbers(6e2)
 				let pause,promiseToPause=new Promise(resolve=>{pause=resolve})
 				setTimeout(pause,3e3)
@@ -292,7 +290,7 @@ var dummy=(()=>{
 					m=[]
 				}
 			}
-			const testTryRearrange=skipTests||logTest(take(tryRearrange(),5))
+			const testTryRearrange=passed=true||logTest(take(tryRearrange(),5))
 			const tryRearrange2=async function*(){
 				var m=[];
 				(async()=>{for await(const i of tryDelayYieldNumbers())m.push(i)})()
@@ -302,7 +300,7 @@ var dummy=(()=>{
 					m=[]
 				}
 			}
-			const testTryRearrange2=skipTests||logTest(take(tryRearrange2(),5))
+			const testTryRearrange2=passed=true||logTest(take(tryRearrange2(),5))
 			///@deprecated “中断”迭代时会导致生成器关闭的问题
 			const preloadThroughIterate=l=>{
 				const m=[];let toBreak=false
@@ -315,7 +313,7 @@ var dummy=(()=>{
 			///大量查询也没有找到close之后再open的方法，
 			///也提了问题：https://stackoverflow.com/questions/55276664/how-to-reopen-asynciterator-after-broke-a-for-await-loop
 			///这可能神作了……可能有很多涉及到的函数得重写一下
-			const testMultipleLoops=skipTests||(async()=>{
+			const testMultipleLoops=passed=true||(async()=>{
 				const l=tryDelayYieldNumbers()
 				let count=3
 				for await(const i of l){if(count-->0)console.log(i);else break}
@@ -330,7 +328,7 @@ var dummy=(()=>{
 				;(async()=>{while(!breakup){m.push((await l.next()).value)}})()
 				return()=>(breakup=true,m)
 			}
-			const testPreload=skipTests||console.log(timeoutPromise(3e3,preload(tryDelayYieldNumbers())))
+			const testPreload=passed=true||console.log(timeoutPromise(3e3,preload(tryDelayYieldNumbers())))
 			const tryRearrange3=async function*(){
 				const a=tryDelayYieldNumbers()
 				console.log(1)
@@ -340,13 +338,13 @@ var dummy=(()=>{
 				console.log(1)
 				yield(await timeoutPromise(1e4,preload(a)))
 			}
-			const testTryRearrange3=skipTests||logTest(tryRearrange3())
+			const testTryRearrange3=passed=true||logTest(tryRearrange3())
 			const tryRearrange4=async function*(){
 				const a=tryDelayYieldNumbers(888)
 				while(true){yield(await timeoutPromise(3e3,preload(a)))}}
 			///TODO:当前问题：每一组都会跳一个
 			///要改下生成器，等待和`yield`不能一个操作
-			const testTryRearrange4=skipTests||logTest(tryRearrange4())
+			const testTryRearrange4=passed=true||logTest(tryRearrange4())
 			///[思路12]实践，目前为止很顺利
 			///TODO: 尝试写成递归
 			const resolution12ThroughCaching=(()=>{
@@ -364,12 +362,12 @@ var dummy=(()=>{
 						b.next()///start up
 						return b
 					}
-					const test=skipTests||(async()=>(a=packaging(tryIntervaledYieldingNumbers(321)),
+					const test=passed=true||(async()=>(a=packaging(tryIntervaledYieldingNumbers(321)),
 						setTimeout((async()=>(console.log("next"),console.log((await a.next()).value))),1e3),
 						setTimeout((async()=>(console.log("next"),console.log((await a.next()).value))),3e3)))()
-					const testSupprtsForawait=skipTests||(async()=>{
+					const testSupprtsForawait=passed=true||(async()=>{
 						for await(i of packaging(tryIntervaledYieldingNumbers(3e2)))(console.log(i),await timeoutPromise(1e3))})()
-					const testNoLosing=skipTests||(async()=>{
+					const testNoLosing=passed=true||(async()=>{
 						const n=numbers()
 						for await(i of packaging(tryIntervaledYieldingNumbers(3e2))){
 							console.log(i)
@@ -387,16 +385,16 @@ var dummy=(()=>{
 						///-	参考[https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Generator#Methods]
 						///-	和[https://jakearchibald.com/2017/async-iterators-and-generators]最后
 					}
-					const test=skipTests||(async()=>(a=packaging(tryIntervaledYieldingNumbers(321))[Symbol.asyncIterator](),
+					const test=passed=true||(async()=>(a=packaging(tryIntervaledYieldingNumbers(321))[Symbol.asyncIterator](),
 						setTimeout((async()=>(console.log("next"),console.log((await a.next()).value))),1e3),
 						setTimeout((async()=>(console.log("next"),console.log((await a.next()).value))),3e3)))()
 					///对for await的支持没问题
 					///JS对async generator写法的支持似乎还是有点混乱……
 					///-	如果写f=()=>{...;return{next:async()=>...}}，在next之外的部分不能await
 					///-	如果写f=async()=>{...;return{next:async()=>...}}，for await前要先await f，比function*的调用要多写个await，不统一，略蛋疼
-					const testSupprtsForawait=skipTests||(async()=>{
+					const testSupprtsForawait=passed=true||(async()=>{
 						for await(i of packaging(tryIntervaledYieldingNumbers(3e2)))(console.log(i),await timeoutPromise(1e3))})()
-					const testNoLosing=skipTests||(async()=>{
+					const testNoLosing=passed=true||(async()=>{
 						const n=numbers()
 						for await(i of packaging(tryIntervaledYieldingNumbers(3e2))){
 							console.log(i)
@@ -415,18 +413,22 @@ var dummy=(()=>{
 		p.preload=preload
 		
 		///TODO:这个函数可能需要整理合并
-		const frequently=function*(check,interval=1000){while(true)yield timeoutPromise(interval,check)}
-		const testFrequently=skipTests||(async()=>{
-			const a=frequently(room.manualOperating)
+		const frequently=async function*(check,interval=3e2){while(true)yield timeoutPromise(interval,check)}
+		const testFrequently=passed=true||(async()=>{
+			var s=true
+			const check=()=>s
+			const a=frequently(check)
+			setTimeout(()=>s=false,1e3)
+			setTimeout(()=>s=true,3e3)
+			setTimeout(()=>s=false,6e3)
 			for await(const b of a)console.log(b)
 		})()
-
 		const tickOnChange=async function*(generator,previous){
 			a=(await generator.next()).value
 			if(a!=previous)yield a
 			yield*tickOnChange(generator,a)
 		}
-		const testTickOnChange=skipTests||(async()=>{
+		const testTickOnChange=passed=true||(async()=>{
 			const a=async function*(){
 				yield true;await timeoutPromise();
 				yield true;await timeoutPromise();
@@ -855,7 +857,7 @@ var dummy=(()=>{
 				}
 				return f(inputStating)
 			}
-			const testTickOnIdleDuration=skipTests||(async()=>{
+			const testTickOnIdleDuration=passed=true||(async()=>{
 				const a=asyncIterator.frequently(room.manualOperating)
 				const c=tickOnIdleDuration(a)
 				for await(const value of c)console.log(value)
