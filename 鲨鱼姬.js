@@ -27,22 +27,18 @@ var dummy=(()=>{
 			for await(const i of c)console.log(i)
 		}
 	}
-	class iter{
-		//Just copied from https://stackoverflow.com/a/53159921/2537458, thanks to @MartyO256
-		static map(iterable,callback){
-			return {
-				[Symbol.iterator](){
-					const iterator=iterable[Symbol.iterator]()
-					return{
-						next(){
-							const r=iterator.next()
-							if(r.done)return r;else{return{value:callback(r.value),done:false}}
-						}
-					}
-				}
-			}
-		}
-	}
+	const iter=(()=>(
+		repeat=function*(l,i=0){yield l[i%l.length];yield*repeat(l,++i)}
+		,testRepeat=passed=true||(async()=>(a=repeat([0,1,2]),
+			b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:0,done:false}),b),
+			b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:1,done:false}),b),
+			b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:2,done:false}),b),
+			b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:0,done:false}),b),
+			b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:1,done:false}),b),
+			a.next(),a.next(),a.next(),a.next(),
+			b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:0,done:false}),b)))()
+		,{repeat}
+	))()
 	const asyncIterator=(()=>{
 		const learningAsync=(()=>{
 			let tryAsync=(()=>{
@@ -100,7 +96,12 @@ var dummy=(()=>{
 				//undefined
 				a1.next()
 				//Promise {<resolved>: {…}} ///**异步生成器的每个`next()`得到的是Promise**
-				})()
+			})()
+			///本以为最后一个yield之后是不能执行代码的，但其实可以用try...finally来做
+			///-	从[https://jakearchibald.com/2017/async-iterators-and-generators/]中间部分看到的，感谢作者
+			////经过测试，对next也同样有效，还发现即使try中return了，finally再次return会覆盖之前try中的
+			////就是说，正常大括号中第一个return就会结束执行（后面全忽略）
+			////但try之后一定会再执行finally（或catch），其中可以覆盖return！*重要的事情说两遍*
 		})()
 		///发现了什么？对不是async函数也可以await，就是说处理异步迭代的代码可以直接处理非异步的
 		///那是不是**所有非异步代码都直接是异步的**呢？？
@@ -155,7 +156,7 @@ var dummy=(()=>{
 			b=await skip(numbers(),3).next(),console.assert(JSON.stringify(b)==JSON.stringify({value:3,done:false}),b),
 			b=await skip(numbers(),13).next(),console.assert(JSON.stringify(b)==JSON.stringify({value:13,done:false}),b),
 			b=await skip(numbers(),23).next(),console.assert(JSON.stringify(b)==JSON.stringify({value:23,done:false}),b)))()
-
+		
 		const logTest=async l=>{for await(const i of l)console.log(i)}
 		const filterOutUnfedineds=async function*(l){yield*filter(l,i=>i!=undefined)}
 		const testFilterUndefineds=passed=true||logTest(filterOutUnfedineds(map(take(numbers(),11),c=>c%2==0?`双数：${c}！`:undefined)))
@@ -168,7 +169,7 @@ var dummy=(()=>{
 		const testReduce=passed=true||logTest(reduce(take(numbers(),11),(i,s)=>[i+s,i+s]))
 		
 		///似乎`setTimeout`就是异步的，区别是Promise可以await，setTimeout不能
-		const timeoutPromise=(delay=1e3,f=()=>{})=>new Promise(r=>setTimeout(()=>r(f()),delay))
+		const timeoutPromise=(l=1e3,f=()=>{})=>new Promise(r=>setTimeout(()=>r(f()),l))
 		const timeoutPromiseTest=passed=true||(async()=>console.assert(await timeoutPromise(12,()=>123)==123))()
 		///[流]模组，命名参考F#的STREAM，概念可能也一致，代码上没有参考（并不是不想参考，只是先自己写写看）
 		///流在内部管理一个异步迭代
@@ -406,9 +407,6 @@ var dummy=(()=>{
 				return throughIterator
 			})()
 			return resolution12ThroughCaching
-			///#### 学习记录
-			///本来以为最后一个yield之后是不能执行代码的，其实可以用try...finally来做
-			///-	从[https://jakearchibald.com/2017/async-iterators-and-generators/]中间部分看到的，感谢作者
 		})()
 		const p=Object.getPrototypeOf(async function*(){}).prototype
 		p.preload=preload
@@ -424,9 +422,10 @@ var dummy=(()=>{
 			setTimeout(()=>s=false,6e3)
 			for await(const b of a)console.log(b)
 		})()
+		///TODO:这个函数可能需要整理合并
 		const tickOnChange=async function*(generator,previous){
 			a=(await generator.next()).value
-			if(a!=previous)yield a
+			if(a!=previous)yield a//这样写也是可以的——yield外面加个括号就好：a!=previous&&(yield a)
 			yield*tickOnChange(generator,a)
 		}
 		const testTickOnChange=passed=true||(async()=>{
@@ -441,7 +440,7 @@ var dummy=(()=>{
 			for await(const b of tickOnChange(a()))console.log(b)
 		})()
 
-		return{map,filter,collect,preload,timeoutPromise,frequently,tickOnChange}
+		return{map,filter,collect,preload,timeoutPromise,repeat,frequently,tickOnChange}
 	})()
 	const douyu={
 		gifts:(()=>{
@@ -1027,31 +1026,87 @@ var dummy=(()=>{
 			就是说不是做一个这层级间逐级判断
 			而是所有消息放到一个池中再排优先级
 			大致有几种发言：
-				自动应答，不会有一条答一条，在需要应答的比较多时，根据具体内容计算优先级，包括
-				-	感谢礼物、升级、感谢光临等
+				自动应答，不会有一条答一条，在需要应答的比较多时，根据具体内容计优先级，包括
+				-	感谢礼物、升级、感谢光临等，会被分组、合并，重要的多次感谢
 				-	回答提问，如游戏名等
 				公告：包括节目预告等，会有个预定发布间隔，到预定时间时会有高优先级，非预定时间优先级低，没有其它高优先级发言时会发
 				起哄（凑热闹）：水友大量发相同内容弹幕时，加入一起发，包括抽奖的情况，优先级最高
 				带动发言：长时间没有水友发言时，发类似“在线的报个数”内容，仍然没有水友发言的话，发公告或者填补空白的无意义表情
+			发言输入完后，如果发言按钮未冷却等冷却再发，如果发言过频繁也稍等后再发，等待会被权重更高的发言打断
 			从发言池中取出下一条发言（并开始等待模拟输入时间）后
 			如果有新的更高优先级的发言，可以打断当前等待
 
 			发言的时机是动态时间线要解决的问题
 			当正在输入一条自动应答时，如果发现起哄，会取消应答开始加入起哄
+			
+			优先度（权重）
+			简单的考虑，把各类发言统一比较权重、排序，但这样的问题是，要有一个函数知道所有发言种类，不适于扩展
+			进一步考虑，或许可以所有发言（发言池中预定要发出的）都带有*最长可接受的延迟发言时间*
+			优先度低的发言，例如欢迎光临，带有一个比较久的延迟时间
+			这样就可以简单按照该时间来排序
+			
+			同时也需要一个有效时间，超出该时间后就放弃该发言
+			这个时间是否可以等于延迟时间？
+			不能等于，考虑到超过预定时间的情况可能会经常发生，发生这种情况应该先加急处理
+			重要的发言会有更长的有效时间，但更短的延迟时间
+			有效时间应该是必须处理的，但是暂时不考虑吧
+			
+			但也会有种情况——有一条重要发言产数字=map(numbers(),format)[Symbol.iterator]()生时，有另一条或几条次要发言已经超出延迟时间
+			这种情况可能可能要先发重要发言，那么就会需要让重要发言直接就是超出延迟时间的状态
+			这样会有些混乱……所以可能应该一般情况一般处理，特殊情况特殊处理
+			需要一个排序函数先排序特殊情况
 			*/
-			const implement=async function*(room){
-				///先做一层试一下
-				const manualOperating={}
-				const autoAnswering=()=>{}
-				const broadcasting=()=>asyncIterator.timeoutPromise(5e3,()=>"大家好！")
-				const roll=()=>{return broadcasting()}
-				while(true)yield roll()
+			const implement=()=>{
+				repeat=iter.repeat
+				wait=asyncIterator.timeoutPromise
+				fakeInputing=a=>(rate=1e3,wait(a.length*rate,()=>a))
+				////先做一层试一下
+				broadcastOnly=async function*(){
+					messaging=repeat(["大家好！"])
+					////有一个预定时间来算权重
+					const broadcasting=()=>(
+						a=messaging.next().value,
+						fakeInputing(a)
+					)
+					const roll=()=>{return broadcasting()}
+					while(true)yield roll()
+				}
+				supportsInterval=async function*(receiving){
+					setup=[repeat(["大家好！"]),11e3]
+					const[messaging,interval]=setup
+					const manualOperating={}
+					const autoAnswering=()=>{}
+					////有一个预定时间来算权重
+					const broadcasting=async()=>(
+						a=messaging.next().value,
+						[a]=await Promise.all([fakeInputing(a),wait(interval)]),
+						a
+					)
+					const roll=()=>{return broadcasting()}
+					while(true)yield roll()
+				}
+				//multipleBroadcasts=async function*(receiving){
+				//	broadcast=(text,interval)=>{getTime:()=>Date.now()+interval;getText:()=>text}
+				//	setup=[[repeat(["欢迎！"]),5e3],[repeat(["大家好！"]),11e3],[repeat(["点点关注！"]),22e3]]
+				//	const[messaging,interval]=setup
+				//	const manualOperating={}
+				//	const autoAnswering=()=>{}
+				//	////有一个预定时间来算权重
+				//	const broadcasting=()=>(
+				//		a=messaging.next().value,
+				//		[a]=Promise.all(fakeInputing(a),wait(interval)),
+				//		a
+				//	)
+				//	const roll=()=>{return broadcasting()}
+				//	while(true)yield roll()
+				//}
+				return supportsInterval()
 			}
 			return implement()
 		}
-		;(async()=>{for await(const a of promisedTimeline())send(a)})()
+		;(async()=>{for await(const a of timeline())send(a)})()
 	}
-	const setup=(()=>{
+	setup=(()=>{
 		const config=(()=>{
 			const roomName="直播间"
 			const welcome=a=>`欢迎「${a.user}」来到${roomName}！点点关注刷刷礼物爱你哟`
@@ -1064,7 +1119,7 @@ var dummy=(()=>{
 				const roomName="雷哥直播间"
 				const messages=(()=>{
 					const range=(startAt=0,end)=>[...Array(end-startAt).keys()].map(i => i + startAt)
-					const map=iter.map
+					const map=asyncIterator.map
 					const interweave=function*(...sources){
 						let sources2=sources.map(([a,b],_)=>[a,b])
 						while(true){
@@ -1092,9 +1147,9 @@ var dummy=(()=>{
 					}
 					const numberToEmoji=a=>"[emot:dy"+a+"]"
 					//Array.prototype.repeat=repeat
-					const 数字=map(numbers(),format)[Symbol.iterator]()
+					const 数字=map(numbers(),format)
 					const 表情=repeat(range(101,137).concat(range(1,17)).map(String).map(a=>a.padStart(3,"0")).map(numberToEmoji))
-					const repeatSlogan=a=>map(表情,b=>b+a)[Symbol.iterator]()
+					const repeatSlogan=a=>map(表情,b=>b+a)
 					const 雷哥口播2=repeat([
 						"好的欢迎各位在北京时间的晚上的八点二十七分依然守候在雷狗蛋的斗鱼直播间！",
 						"人生路漫漫 欢乐永相伴 每天与大家不见不散！",
@@ -1196,6 +1251,11 @@ var dummy=(()=>{
 					//"安如香喵Kissing":"香喵",	
 					//"天地人脉 ":"天地",	
 					//"早睡早起520":"呼噜噜",
+			const 狗带=(()=>{
+				const roomName="狗带的直播间"
+				broadcast=(a,b)=>[a,b]
+				return{messages:[broadcast("欢迎！",5e3),broadcast("大家好 ！",55e3)]}
+			})()
 			const test=(()=>{
 				const roomName="雷哥直播间"
 				const friends={
@@ -1215,7 +1275,7 @@ var dummy=(()=>{
 			const empty=runTest={messages:[[],0],answer:()=>{}}
 			const id=room.wrapper.id
 			return true?empty:id==5095833?雷哥FriendsOnly:id==5457742?秀秀:id==678804?"亚男老师的音乐直播间":
-				id==217331?"表哥直播间":id==5074415?"半支烟直播间":id==6119609?"编程直播间"
+				id==217331?"表哥直播间":id==5074415?"半支烟直播间":id==6119609?狗带
 					:general
 		})()
 		//enhanceControl()
