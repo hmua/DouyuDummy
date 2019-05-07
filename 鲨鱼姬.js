@@ -1072,8 +1072,8 @@ var dummy=(()=>{
 					while(true)yield roll()
 				}
 				supportsInterval=async function*(receiving){
-					setup=[repeat(["大家好！"]),11e3]
-					const[messaging,interval]=setup
+					setup=[repeat(["大家好！","欢迎！"]),11e3]
+					;[messaging,interval]=setup
 					const manualOperating={}
 					const autoAnswering=()=>{}
 					////有一个预定时间来算权重
@@ -1085,22 +1085,25 @@ var dummy=(()=>{
 					const roll=()=>{return broadcasting()}
 					while(true)yield roll()
 				}
-				//multipleBroadcasts=async function*(receiving){
-				//	broadcast=(text,interval)=>{getTime:()=>Date.now()+interval;getText:()=>text}
-				//	setup=[[repeat(["欢迎！"]),5e3],[repeat(["大家好！"]),11e3],[repeat(["点点关注！"]),22e3]]
-				//	const[messaging,interval]=setup
-				//	const manualOperating={}
-				//	const autoAnswering=()=>{}
-				//	////有一个预定时间来算权重
-				//	const broadcasting=()=>(
-				//		a=messaging.next().value,
-				//		[a]=Promise.all(fakeInputing(a),wait(interval)),
-				//		a
-				//	)
-				//	const roll=()=>{return broadcasting()}
-				//	while(true)yield roll()
-				//}
-				return supportsInterval()
+				multipleBroadcasts=async function*(receiving){
+					//broadcast=(messages,interval)=>(time=Date.now()+interval,messages=repeat(messages),{getTime:()=>time,next:()=>(time=Date.now()+interval,messages.next().value)})
+					broadcast=(messages1,interval)=>{let time=Date.now()+interval,messages=repeat(messages1)
+						return{getTime:()=>time,next:()=>(time=Date.now()+interval,messages.next().value)}}
+					testBroadcast=passed=true||(()=>(
+						a=broadcast(["欢迎！","大家好！"],5e3),
+						console.log(a.getTime()),console.log(a.next()),console.log(a.getTime()),console.log(a.next()),console.log(a.getTime())
+					))()
+					config=[broadcast(["欢迎！","大家好！"],5e3),broadcast(["点点关注！"],11e3),broadcast(["刷刷礼物！"],22e3)]
+					const manualOperating={}
+					const autoAnswering=()=>{}
+					const broadcasting=()=>(
+						a=config.sort((a,b)=>a.getTime()-b.getTime())[0].next(),
+						fakeInputing(a)
+					)
+					const roll=()=>{return broadcasting()}
+					while(true)yield roll()
+				}
+				return multipleBroadcasts()
 			}
 			return implement()
 		}
