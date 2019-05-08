@@ -3,8 +3,9 @@
 ///https://github.com/mnms/DouyuDummy
 ///以下代码除了极小部分特别说明的之外全都是原创，欢迎引用和学习，但请至少注明引用自本处，也欢迎讨论
 /*
-**Javascript除了没有类型检查这点极其蛋疼之外
-真的是越写越得劲儿！非常自由**
+**Javascript有些语法有点蛋疼
+没有类型检查实在是太自由写起来太顺手了
+感到之前写F#有一半时间都在处理类型**
 
 #### 几种结构写法的比较
 - JSON写法最简练，而且JSON里面居然可以声明class！很强大！
@@ -15,6 +16,7 @@
 	还有不能一次多个赋值`[a,b]:[1,2]`
 - const f=(()=>{...})()强大，符合函数式风格，除了写法奇怪，还算不错
 - class啰嗦，并且**不能嵌套**，也是只能做数据
+- 箭头函数加括号的写法在VS里面不支持折叠！
 */
 var dummy=(()=>{
 	///ES6 Iterators, RxJS, IxJS and the Async Iterators proposal https://blog.scottlogic.com/2016/06/29/es6-iterators.html
@@ -466,6 +468,8 @@ var dummy=(()=>{
 				太空卡:["张","f3e206359deffbdee0a0cdbccbab704b",60], ///太空旅行卡 ///6翅
 				棒棒糖:["根","d331dce3ee6817a2e89e78472749c49c",10], ///星空棒棒糖 ///1翅 贡献+10 经验+10 亲密度+10
 				小星星:["颗","5163e0b5c3d9b33cf2ab0ff9d02a0956"], ///星星 ///.1翅 各+1
+				///普通礼物
+				狗尾草:["根","215e1c717bac4228545929e951f0fbf1"], ///狗尾巴草
 				///暂时不知道
 				幸运草:["棵","7f0f484872026c0d92b5679c43772577"],
 			}
@@ -475,7 +479,7 @@ var dummy=(()=>{
 		testGetGiftIdFromUrl:()=>passed=true||(a=douyu.getGiftIdFromUrl("https://gfs-op.douyucdn.cn/dygift/1808/5163e0b5c3d9b33cf2ab0ff9d02a0956.gif?x-oss-process=image/format,webp")
 			,console.assert(a=="5163e0b5c3d9b33cf2ab0ff9d02a0956",a)),
 		getGiftfromUrl:a=>(id=douyu.getGiftIdFromUrl(a),douyu.gifts.find(i=>i.id instanceof Array?i.id.includes(id):i.id==id)||
-			(console.error(a),{name:"礼物",quantifier:"个",score:Number.MAX_SAFE_INTEGER})),
+			(console.error(id),{name:"礼物",quantifier:"个",score:Number.MAX_SAFE_INTEGER})),
 		testGetGiftfromUrl:()=>passed=true||[
 			douyu.getGiftfromUrl("42669592fba5a9c067614dee8feea7de"),
 			douyu.getGiftfromUrl("296d39b7951a249d6f640ed58cfacb67")]}
@@ -1030,7 +1034,9 @@ var dummy=(()=>{
 				-	感谢礼物、升级、感谢光临等，会被分组、合并，重要的多次感谢
 				-	回答提问，如游戏名等
 				公告：包括节目预告等，会有个预定发布间隔，到预定时间时会有高优先级，非预定时间优先级低，没有其它高优先级发言时会发
-				起哄（凑热闹）：水友大量发相同内容弹幕时，加入一起发，包括抽奖的情况，优先级最高
+				起哄（凑热闹）：
+					水友发“嘿”时回个“嘿嘿”，水友发“哈哈”时回个“哈哈哈哈”
+					水友大量发相同内容弹幕时，加入一起发，包括抽奖的情况，优先级最高
 				带动发言：长时间没有水友发言时，发类似“在线的报个数”内容，仍然没有水友发言的话，发公告或者填补空白的无意义表情
 			发言输入完后，如果发言按钮未冷却等冷却再发，如果发言过频繁也稍等后再发，等待会被权重更高的发言打断
 			从发言池中取出下一条发言（并开始等待模拟输入时间）后
@@ -1051,7 +1057,7 @@ var dummy=(()=>{
 			重要的发言会有更长的有效时间，但更短的延迟时间
 			有效时间应该是必须处理的，但是暂时不考虑吧
 			
-			但也会有种情况——有一条重要发言产数字=map(numbers(),format)[Symbol.iterator]()生时，有另一条或几条次要发言已经超出延迟时间
+			但也会有种情况——有一条重要发言产生时，有另一条或几条次要发言已经超出延迟时间
 			这种情况可能可能要先发重要发言，那么就会需要让重要发言直接就是超出延迟时间的状态
 			这样会有些混乱……所以可能应该一般情况一般处理，特殊情况特殊处理
 			需要一个排序函数先排序特殊情况
@@ -1059,9 +1065,9 @@ var dummy=(()=>{
 			const implement=()=>{
 				repeat=iter.repeat
 				wait=asyncIterator.timeoutPromise
-				fakeInputing=a=>(rate=1e3,wait(a.length*rate,()=>a))
+				fakeInputing=a=>(rate=333,wait(a.length*rate,()=>a))
 				////先做一层试一下
-				broadcastOnly=async function*(){
+				先试一下广播=async function*(){
 					messaging=repeat(["大家好！"])
 					////有一个预定时间来算权重
 					const broadcasting=()=>(
@@ -1071,7 +1077,7 @@ var dummy=(()=>{
 					const roll=()=>{return broadcasting()}
 					while(true)yield roll()
 				}
-				supportsInterval=async function*(receiving){
+				加入间隔时间=async function*(){
 					setup=[repeat(["大家好！","欢迎！"]),11e3]
 					;[messaging,interval]=setup
 					const manualOperating={}
@@ -1085,17 +1091,18 @@ var dummy=(()=>{
 					const roll=()=>{return broadcasting()}
 					while(true)yield roll()
 				}
-				multipleBroadcasts=async function*(receiving){
+				多组广播=async function*(){
 					//broadcast=(messages,interval)=>(time=Date.now()+interval,messages=repeat(messages),{getTime:()=>time,next:()=>(time=Date.now()+interval,messages.next().value)})
-					broadcast=(messages1,interval)=>{let time=Date.now()+interval,messages=repeat(messages1)
-						return{getTime:()=>time,next:()=>(time=Date.now()+interval,messages.next().value)}}
+					broadcast=(messages,interval)=>{let time=Date.now()+interval,messages1=repeat(messages)
+						return{getTime:()=>time,next:()=>(time=Date.now()+interval,messages1.next().value)}}
 					testBroadcast=passed=true||(()=>(
 						a=broadcast(["欢迎！","大家好！"],5e3),
 						console.log(a.getTime()),console.log(a.next()),console.log(a.getTime()),console.log(a.next()),console.log(a.getTime())
 					))()
-					config=[broadcast(["欢迎！","大家好！"],5e3),broadcast(["点点关注！"],11e3),broadcast(["刷刷礼物！"],22e3)]
-					const manualOperating={}
-					const autoAnswering=()=>{}
+					config=[broadcast(["初学编程","用Js写个捧场机器人","弹幕不能及时答复 敬请谅解","欢迎鱼吧留言"],5e3)
+						,broadcast(["点点关注 刷刷小礼物  给老板比心 递茶 爱你们哟 HMUAA~"
+							,"感谢帮忙刷小礼物的小伙伴  给老板比心 递茶 爱你们哟 HMUAA~"
+							,"爱直播 爱斗鱼大家庭 最爱我雷哥","等你开播"],60e3)]
 					const broadcasting=()=>(
 						a=config.sort((a,b)=>a.getTime()-b.getTime())[0].next(),
 						fakeInputing(a)
@@ -1103,11 +1110,49 @@ var dummy=(()=>{
 					const roll=()=>{return broadcasting()}
 					while(true)yield roll()
 				}
-				return multipleBroadcasts()
+				接收直播间弹幕并把应答消息加到发言池中=async function*(直播间弹幕){
+					/*
+					排他性
+					整体上消息处理，可能是排他性的，没有需要交叉处理的情况
+					自动感谢的其实不是水友发言，而是直播间系统消息，系统消息和水友发言的处理好像不会交叉
+					但对长时间没有互动发言和答复个别消息的情况目前还不完全确定
+					可能把消息队列先交前者处理再交后者，是有优先级关系而非完全排他的
+					或者也可能不是单条消息处理上的排他性，而是整个消息列表处理上的排他性
+					*/
+					broadcast=(messages,interval)=>{let time=Date.now()+interval,messages1=repeat(messages)
+						return{getTime:()=>time,next:()=>(time=Date.now()+interval,messages1.next().value)}}
+					testBroadcast=passed=true||(()=>(
+						a=broadcast(["欢迎！","大家好！"],5e3),
+						console.log(a.getTime()),console.log(a.next()),console.log(a.getTime()),console.log(a.next()),console.log(a.getTime())
+					))()
+					pool=[broadcast(["初学编程","用Js写个捧场机器人","弹幕不能及时答复 敬请谅解","欢迎鱼吧留言"],5e3)
+						,broadcast(["点点关注 刷刷小礼物  给老板比心 递茶 爱你们哟 HMUAA~"
+							,"感谢帮忙刷小礼物的小伙伴  给老板比心 递茶 爱你们哟 HMUAA~"
+							,"爱直播 爱斗鱼大家庭 最爱我雷哥","等你开播"],60e3)]
+					const manualOperating={}
+					const answer=a=>(
+						roomName="直播间",
+						welcome=a=>`欢迎「${a.user}」来到${roomName}！点点关注刷刷礼物爱你哟`,
+						getGift=a=>(a.quantity>1?a.quantity+a.quantifier:"")+a.gift.name,
+						///一句赋值多个的短写法：[aa,bb]=[1,22]
+						thanking=a=>(gift=getGift(a),`谢谢「${a.user}」的${gift}！嚒嚒哒爱你哟`),
+						a instanceof room.wrapper.chat.Welcome?welcome(a):a instanceof room.wrapper.chat.Gift?thanking(a):console.error(a)
+					)
+					;(async()=>{for await(const a of 直播间弹幕)pool.push(answer(a))})()
+					const roll=()=>(
+						a=pool.sort((a,b)=>(
+							f=a=>a.constructor===String?1:a.getTime(),
+							f(a)-f(b)))[0],
+						a=a.constructor===String?(pool.splice(pool.indexOf(a),1),a):a.next(),
+						fakeInputing(a)
+					)
+					while(true)yield roll()
+				}
+				return 接收直播间弹幕并把应答消息加到发言池中(room.wrapper.chat.list)
 			}
 			return implement()
 		}
-		;(async()=>{for await(const a of timeline())send(a)})()
+		;(async()=>{for await(const a of timeline())console.log(a)})()
 	}
 	setup=(()=>{
 		const config=(()=>{
