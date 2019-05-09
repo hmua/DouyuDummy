@@ -459,6 +459,7 @@ var dummy=(()=>{
 				通行证:["张","a1c5aafd104537d89ba1d2d5f8620ef2"], ///车队通行证
 				辣眼睛:["个","c669ecfe9e550924163df2d5f35d074d"],
 				///付费的
+				火箭:["发","e2b6d011d0c2e750b5f92b9045078f59",5000], ///100翅 各+1000
 				飞机:["架","296d39b7951a249d6f640ed58cfacb67",1000], ///100翅 各+1000
 				办卡:["张","4388bdce84df1cb6965d592726ecf8b3",60], ///6翅
 				小飞碟:["支","45fbb13ed057bcb19e33137cf3f24ad5",10], ///1翅
@@ -1111,6 +1112,44 @@ var dummy=(()=>{
 					while(true)yield roll()
 				}
 				接收直播间弹幕并把应答消息加到发言池中=async function*(直播间弹幕){
+					/*
+					排他性
+					整体上消息处理，可能是排他性的，没有需要交叉处理的情况
+					自动感谢的其实不是水友发言，而是直播间系统消息，系统消息和水友发言的处理好像不会交叉
+					但对长时间没有互动发言和答复个别消息的情况目前还不完全确定
+					可能把消息队列先交前者处理再交后者，是有优先级关系而非完全排他的
+					或者也可能不是单条消息处理上的排他性，而是整个消息列表处理上的排他性
+					*/
+					broadcast=(messages,interval)=>{let time=Date.now()+interval,messages1=repeat(messages)
+						return{getTime:()=>time,next:()=>(time=Date.now()+interval,messages1.next().value)}}
+					testBroadcast=passed=true||(()=>(
+						a=broadcast(["欢迎！","大家好！"],5e3),
+						console.log(a.getTime()),console.log(a.next()),console.log(a.getTime()),console.log(a.next()),console.log(a.getTime())
+					))()
+					pool=[broadcast(["初学编程","用Js写个捧场机器人","弹幕不能及时答复 敬请谅解","欢迎鱼吧留言"],5e3)
+						,broadcast(["点点关注 刷刷小礼物  给老板比心 递茶 爱你们哟 HMUAA~"
+							,"感谢帮忙刷小礼物的小伙伴  给老板比心 递茶 爱你们哟 HMUAA~"
+							,"爱直播 爱斗鱼大家庭 最爱我雷哥","等你开播"],60e3)]
+					const manualOperating={}
+					const answer=a=>(
+						roomName="直播间",
+						welcome=a=>`欢迎「${a.user}」来到${roomName}！点点关注刷刷礼物爱你哟`,
+						getGift=a=>(a.quantity>1?a.quantity+a.quantifier:"")+a.gift.name,
+						///一句赋值多个的短写法：[aa,bb]=[1,22]
+						thanking=a=>(gift=getGift(a),`谢谢「${a.user}」的${gift}！嚒嚒哒爱你哟`),
+						a instanceof room.wrapper.chat.Welcome?welcome(a):a instanceof room.wrapper.chat.Gift?thanking(a):console.error(a)
+					)
+					;(async()=>{for await(const a of 直播间弹幕)pool.push(answer(a))})()
+					const roll=()=>(
+						a=pool.sort((a,b)=>(
+							f=a=>a.constructor===String?1:a.getTime(),
+							f(a)-f(b)))[0],
+						a=a.constructor===String?(pool.splice(pool.indexOf(a),1),a):a.next(),
+						fakeInputing(a)
+					)
+					while(true)yield roll()
+				}
+				用户手动操作=async function*(直播间弹幕){
 					/*
 					排他性
 					整体上消息处理，可能是排他性的，没有需要交叉处理的情况
