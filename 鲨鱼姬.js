@@ -1166,40 +1166,80 @@ var dummy=(()=>{
 					手动操作=async function*(){for await(a of room.manualOperating())if(a)yield a}
 					手动操作测试=passed=true||(async()=>{for await(a of 手动操作())console.log(a)})()
 					///也许不用promise也能写，先试一下promise
-					自动应答改写成PROMISE=async function*(直播间弹幕){
-						公告=(messages,interval)=>{let time=Date.now()+interval,messages1=repeat(messages)
-							return{getTime:()=>time,next:()=>(time=Date.now()+interval,messages1.next().value)}}
-						公告测试=passed=true||(()=>(
-							a=公告(["欢迎！","大家好！"],5e3),
-							console.log(a.getTime()),console.log(a.next()),console.log(a.getTime()),console.log(a.next()),console.log(a.getTime())
-						))()
-						池=[公告(["初学编程","用Js写个捧场机器人","弹幕不能及时答复 敬请谅解","欢迎鱼吧留言"],5e3)
-							,公告(["点点关注 刷刷小礼物  给老板比心 递茶 爱你们哟 HMUAA~"
-								,"感谢帮忙刷小礼物的小伙伴  给老板比心 递茶 爱你们哟 HMUAA~"
-								,"爱直播 爱斗鱼大家庭 最爱我雷哥","等你开播"],60e3)]
-						const 自动应答=a=>(
-							f=a=>(
-								roomName="直播间",
-								welcome=a=>`欢迎「${a.user}」来到${roomName}！点点关注刷刷礼物爱你哟`,
-								getGift=a=>(a.quantity>1?a.quantity+a.quantifier:"")+a.gift.name,
-								thanking=a=>(gift=getGift(a),`谢谢「${a.user}」的${gift}！嚒嚒哒爱你哟`),
-								a instanceof room.wrapper.chat.Welcome?welcome(a):a instanceof room.wrapper.chat.Gift?thanking(a):console.error(a)
-							),
-							假装手动输入(f(a))
-						)
-						;(async()=>{for await(const a of 直播间弹幕)池.push(自动应答(a))})()
-						///next要做成一个可以被reject的promise，被reject时保持发言池不变
-						///公告.next也要可以reject
-						const next=()=>(
-							是自动应答=a=>a.constructor===Promise,
-							a=池.sort((a,b)=>(
-								f=a=>是自动应答(a)?1:a.getTime(),
-								f(a)-f(b)))[0],
-							是自动应答(a)?(池.splice(池.indexOf(a),1),a):假装手动输入(a.next())
-						)
-						while(true)yield await next()
+					改写成PROMISE=(直播间弹幕)=>{
+						改写自动应答=async function*(直播间弹幕){
+							公告=(messages,interval)=>{let time=Date.now()+interval,messages1=repeat(messages)
+								return{getTime:()=>time,next:()=>(time=Date.now()+interval,messages1.next().value)}}
+							公告测试=passed=true||(()=>(
+								a=公告(["欢迎！","大家好！"],5e3),
+								console.log(a.getTime()),console.log(a.next()),console.log(a.getTime()),console.log(a.next()),console.log(a.getTime())
+							))()
+							池=[公告(["初学编程","用Js写个捧场机器人","弹幕不能及时答复 敬请谅解","欢迎鱼吧留言"],5e3)
+								,公告(["点点关注 刷刷小礼物  给老板比心 递茶 爱你们哟 HMUAA~"
+									,"感谢帮忙刷小礼物的小伙伴  给老板比心 递茶 爱你们哟 HMUAA~"
+									,"爱直播 爱斗鱼大家庭 最爱我雷哥","等你开播"],60e3)]
+							自动应答=a=>(
+								f=a=>(
+									roomName="直播间",
+									welcome=a=>`欢迎「${a.user}」来到${roomName}！点点关注刷刷礼物爱你哟`,
+									getGift=a=>(a.quantity>1?a.quantity+a.quantifier:"")+a.gift.name,
+									thanking=a=>(gift=getGift(a),`谢谢「${a.user}」的${gift}！嚒嚒哒爱你哟`),
+									a instanceof room.wrapper.chat.Welcome?welcome(a):a instanceof room.wrapper.chat.Gift?thanking(a):console.error(a)
+								),
+								假装手动输入(f(a))
+							)
+							;(async()=>{for await(const a of 直播间弹幕)池.push(自动应答(a))})()
+							///next要做成一个可以被reject的promise，被reject时保持发言池不变
+							///公告.next也要可以reject
+							const next=()=>(
+								是自动应答=a=>a.constructor===Promise,
+								a=池.sort((a,b)=>(
+									f=a=>是自动应答(a)?1:a.getTime(),
+									f(a)-f(b)))[0],
+								是自动应答(a)?(池.splice(池.indexOf(a),1),a):假装手动输入(a.next())
+							)
+							while(true)yield await next()
+						}
+						改写公告=async function*(直播间弹幕){
+							公告=(messages,interval)=>{let time=Date.now()+interval,messages1=repeat(messages)
+								return{getTime:()=>time,next:()=>(time=Date.now()+interval,假装手动输入(messages1.next().value))}}
+							公告测试=passed=true||(async()=>(
+								a=公告(["一二三四五六七八九十一二三四五六七八九廿一二三四五六七八九卅！",
+									"一二三四五六七八九十一二三四五六七八九廿一二三四五六七八九卅一二三四五六七八九卌！"],5e4),
+								console.log(a.getTime()),console.log(await a.next()),
+								console.log(a.getTime()),console.log(await a.next()),
+								console.log(a.getTime()),console.log(await a.next()),
+								console.log(a.getTime()),console.log(await a.next())
+							))()
+							池=[公告(["初学编程","用Js写个捧场机器人","弹幕不能及时答复 敬请谅解","欢迎鱼吧留言"],5e3)
+								,公告(["点点关注 刷刷小礼物  给老板比心 递茶 爱你们哟 HMUAA~"
+									,"感谢帮忙刷小礼物的小伙伴  给老板比心 递茶 爱你们哟 HMUAA~"
+									,"爱直播 爱斗鱼大家庭 最爱我雷哥","等你开播"],60e3)]
+							自动应答=a=>(
+								f=a=>(
+									roomName="直播间",
+									welcome=a=>`欢迎「${a.user}」来到${roomName}！点点关注刷刷礼物爱你哟`,
+									getGift=a=>(a.quantity>1?a.quantity+a.quantifier:"")+a.gift.name,
+									thanking=a=>(gift=getGift(a),`谢谢「${a.user}」的${gift}！嚒嚒哒爱你哟`),
+									a instanceof room.wrapper.chat.Welcome?welcome(a):a instanceof room.wrapper.chat.Gift?thanking(a):console.error(a)
+								),
+								假装手动输入(f(a))
+							)
+							;(async()=>{for await(const a of 直播间弹幕)池.push(自动应答(a))})()
+							///next要做成一个可以被reject的promise，被reject时保持发言池不变
+							///公告.next也要可以reject
+							const next=()=>(
+								是自动应答=a=>a.constructor===Promise,
+								a=池.sort((a,b)=>(
+									f=a=>是自动应答(a)?1:a.getTime(),
+									f(a)-f(b)))[0],
+								是自动应答(a)?(池.splice(池.indexOf(a),1),a):a.next()
+							)
+							while(true)yield await next()
+						}
+						return 改写公告(直播间弹幕)
 					}
-					return 自动应答改写成PROMISE(直播间弹幕)
+					return 改写成PROMISE(直播间弹幕)
 				}
 				/*
 					打断当前操作
