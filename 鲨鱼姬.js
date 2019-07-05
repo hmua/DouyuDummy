@@ -19,6 +19,8 @@
 - 箭头函数加括号的写法在VS里面不支持折叠！
 
 一句赋值多个的短写法：[aa,bb]=[1,22]
+
+初学JavaScript，很多写法都在试探，请海涵
 */
 var dummy=(()=>{
 	///ES6 Iterators, RxJS, IxJS and the Async Iterators proposal https://blog.scottlogic.com/2016/06/29/es6-iterators.html
@@ -112,7 +114,7 @@ var dummy=(()=>{
 		///所以可能要把完全没必要异步的函数重写成非异步的
 		const numbers=(()=>{
 			const recursive=function*(i=0)/*递归*/{yield i++;yield*recursive(i)}
-			///经过测试迭代比递归快很多，大概只用了十几分之一时间，可能是因为优先权
+			///经过测试迭代比递归快很多，大概只用了十几分之一时间，可能是因为迭代优先权高
 			const testTryRecursive=passed=true||(a=recursive(),
 				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:0,done:false}),b),
 				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:1,done:false}),b),
@@ -164,7 +166,7 @@ var dummy=(()=>{
 		const logTest=async l=>{for await(const i of l)console.log(i)}
 		const filterOutUnfedineds=async function*(l){yield*filter(l,i=>i!=undefined)}
 		const testFilterUndefineds=passed=true||logTest(filterOutUnfedineds(map(take(numbers(),11),c=>c%2==0?`双数：${c}！`:undefined)))
-		///@deprecated remomend to use filterUndedineds explicitly, 这行是留下备忘、作参考的
+		///@deprecated 直接用filterOutUnfedineds, 这行是留下备忘、作参考的
 		const collect=async function*(a,f){yield*filterOutUnfedineds(map(a,f))}
 		const testCollect=passed=true||logTest(collect(take(numbers(),11),c=>c%2==0?`双数：${c}！`:undefined))
 		///scan with state, like F# Seq.scan.
@@ -1167,9 +1169,23 @@ var dummy=(()=>{
 					手动操作测试=passed=true||(async()=>{for await(a of 手动操作())console.log(a)})()
 					///也许不用promise也能写，先试一下promise
 					改写成诺=(直播间弹幕)=>{
-						///stateless√
-						///rejectable
 						公告=(messages,interval)=>(
+							/*
+							-[x] 无状态
+							-[x] 做成promise
+								-[ ] 可以打断：reject时下次重发这一条
+									问题：async yield时怎样知道被reject了？
+									以目前了解来看，如果用yield写法就不能响应reject
+									如果用next写法，那怎样呢无状态？
+									也许解决方案是用promise chain这样的东西而不是generator
+									猜测对async generator外部reject时可能会在内部throw，可以试一下
+									要弄清一下promise和async的发展关系
+										多个查询结果表明async会替代和淘汰promise
+										async的好处在于可以catch具体的异常
+									因此要尝试用async写
+									相对于抛异常中断，可能有更简单的方法，就是拆成两个函数，先准备就绪，再控制是否执行
+									大致思路，race输入公告和发生手动操作
+							*/
 							f=async function*(messages){
 								yield{预定时间:Date.now()+interval,内容:messages.next().value}
 								yield*f(messages)}
