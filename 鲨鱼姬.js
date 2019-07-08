@@ -21,6 +21,12 @@
 一句赋值多个的短写法：[aa,bb]=[1,22]
 
 初学JavaScript，很多写法都在试探，请海涵
+
+# Generator
+- 做for await，break后，该迭代会成`GeneratorStatus:closed`，不能再次迭代
+	（查了MDN，非异步迭代也是这样）
+	大量查询也没有找到close之后再open的方法，
+	也提了问题：https://stackoverflow.com/questions/55276664/how-to-reopen-asynciterator-after-broke-a-for-await-loop
 */
 var dummy=(()=>{
 	///ES6 Iterators, RxJS, IxJS and the Async Iterators proposal https://blog.scottlogic.com/2016/06/29/es6-iterators.html
@@ -34,15 +40,38 @@ var dummy=(()=>{
 		}
 	}
 	const iter=(()=>(
-		repeat=function*(l,i=0){yield l[i%l.length];yield*repeat(l,++i)}
-		,testRepeat=passed=true||(async()=>(a=repeat([0,1,2]),
-			b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:0,done:false}),b),
-			b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:1,done:false}),b),
-			b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:2,done:false}),b),
-			b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:0,done:false}),b),
-			b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:1,done:false}),b),
+		numbers=(()=>{
+			const recursive=function*(i=0)/*递归*/{yield i++;yield*recursive(i)}
+			///经过测试迭代比递归快很多，大概只用了十几分之一时间，可能是因为迭代优先权高
+			const testTryRecursive=passed=true||(a=recursive(),
+				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:0,done:false}),b),
+				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:1,done:false}),b),
+				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:2,done:false}),b),
+				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:3,done:false}),b),
+				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:4,done:false}),b))
+			const iterate=function*()/*迭代*/{i=0;while(true)yield i++} //需要特别注意外层不能有同名i的变量！
+			const testTryIterate=passed=true||(a=iterate(),
+				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:0,done:false}),b),
+				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:1,done:false}),b),
+				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:2,done:false}),b),
+				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:3,done:false}),b),
+				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:4,done:false}),b))
+			return recursive
+		})()
+		,repeat=function*(l,i=0){yield l[i%l.length];yield*repeat(l,++i)}
+		,testRepeat=passed=true||(()=>(a=repeat([0,1,2]),
+			nextShouldBe=c=>[(b=a.next(),JSON.stringify(b)==JSON.stringify({value:c,done:false})),b.value],
+			console.assert(...nextShouldBe(0)),console.assert(...nextShouldBe(1)),console.assert(...nextShouldBe(2))
+			,console.assert(...nextShouldBe(0)),console.assert(...nextShouldBe(1)),
 			a.next(),a.next(),a.next(),a.next(),
-			b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:0,done:false}),b)))()
+			console.assert(...nextShouldBe(0))))()
+		,skip=(a,l=1)=>l<1?a:(a.next(),skip(a,--l))
+		,testSkip=passed=true||(()=>(
+			b=skip(numbers(),3).next(),console.assert(JSON.stringify(b)==JSON.stringify({value:3,done:false}),b),
+			b=skip(numbers(),13).next(),console.assert(JSON.stringify(b)==JSON.stringify({value:13,done:false}),b),
+			b=skip(numbers(),23).next(),console.assert(JSON.stringify(b)==JSON.stringify({value:23,done:false}),b)))()
+		,p=Object.getPrototypeOf(function*(){}).prototype
+		,p.skip=function(l){return skip(this,l)}
 		,{repeat}
 	))()
 	const asyncIterator=(()=>{
@@ -130,6 +159,7 @@ var dummy=(()=>{
 				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:4,done:false}),b))
 			return recursive
 		})()
+		const initial=f=>map(numbers(),f)
 		///@deprecated 生成器迭代后会关闭，下面有解释
 		const takeThroughIterate=async function*(l,count){for await(const i of l){if(count-->0)yield i;else break}}
 		const take=async function*(l,count){for(let i=0;i<count;i++)yield(await l.next()).value}
@@ -164,11 +194,8 @@ var dummy=(()=>{
 			b=await skip(numbers(),23).next(),console.assert(JSON.stringify(b)==JSON.stringify({value:23,done:false}),b)))()
 		
 		const logTest=async l=>{for await(const i of l)console.log(i)}
-		const filterOutUnfedineds=async function*(l){yield*filter(l,i=>i!=undefined)}
-		const testFilterUndefineds=passed=true||logTest(filterOutUnfedineds(map(take(numbers(),11),c=>c%2==0?`双数：${c}！`:undefined)))
-		///@deprecated 直接用filterOutUnfedineds, 这行是留下备忘、作参考的
-		const collect=async function*(a,f){yield*filterOutUnfedineds(map(a,f))}
-		const testCollect=passed=true||logTest(collect(take(numbers(),11),c=>c%2==0?`双数：${c}！`:undefined))
+		filterOutUnfedineds=async function*(l){yield*filter(l,i=>i!=undefined)}
+		testFilterUndefineds=passed=true||logTest(filterOutUnfedineds(map(take(numbers(),11),c=>c%2==0?`双数：${c}！`:undefined)))
 		///scan with state, like F# Seq.scan.
 		///@deprecated 实际用到的不是这条，白写了……还是留下备忘，作参考
 		const reduce=async function*(l,f,initial=0){let memory=initial;for await(const i of l){const[r,state]=f(i,memory);memory=state;yield r}}
@@ -416,6 +443,7 @@ var dummy=(()=>{
 		})()
 		const p=Object.getPrototypeOf(async function*(){}).prototype
 		p.preload=preload
+		p.filterOutUnfedineds=function(){return filterOutUnfedineds(this)}
 		
 		///TODO:这个函数可能需要整理合并
 		const frequently=async function*(check,interval=3e2){while(true)yield timeoutPromise(interval,check)}
@@ -445,12 +473,11 @@ var dummy=(()=>{
 				yield true;await timeoutPromise();}
 			for await(const b of tickOnChange(a()))console.log(b)
 		})()
-
-		return{take,iter,map,filter,collect,preload,timeoutPromise,repeat,frequently,tickOnChange}
+		return{initial,take,iter,map,filter,preload,timeoutPromise,repeat,frequently,tickOnChange}
 	})()
 	const douyu={
 		gifts:(()=>{
-			class Gift{constructor(name,quantifier,id,score=1){this.name=name;this.quantifier=quantifier,this.id=id,this.score=score}}
+			class 礼物{constructor(name,quantifier,id,score=1){this.name=name;this.quantifier=quantifier,this.id=id,this.score=score}}
 			const a={
 				///可以开宝箱领的
 				弱鸡:["只","344fe065475cc90728b7744818ffe2b5",2], ///经验+2 亲密度+2
@@ -478,7 +505,7 @@ var dummy=(()=>{
 				///暂时不知道
 				幸运草:["棵","7f0f484872026c0d92b5679c43772577"],
 			}
-			return Object.keys(a).map(k=>{const i=a[k];i.unshift(k);return new Gift(...i)})
+			return Object.keys(a).map(k=>{const i=a[k];i.unshift(k);return new 礼物(...i)})
 		})(),
 		getGiftIdFromUrl:url=>(a=url.lastIndexOf("."),url.slice(url.lastIndexOf("/",a)+1,a)),
 		testGetGiftIdFromUrl:()=>passed=true||(a=douyu.getGiftIdFromUrl("https://gfs-op.douyucdn.cn/dygift/1808/5163e0b5c3d9b33cf2ab0ff9d02a0956.gif?x-oss-process=image/format,webp")
@@ -493,8 +520,8 @@ var dummy=(()=>{
 			const id=Number(window.location.pathname.substring(1))
 			let get=a=>document.getElementsByClassName(a)[0]
 			const chat=(()=>{
-				class Welcome{constructor(user){this.user=user}}
-				class Gift{constructor(user,[quantity,gift]){this.user=user;this.gift=gift,this.quantity=quantity,this.quantifier=gift.quantifier,this.score=gift.score*quantity}}
+				class 欢迎{constructor(user){this.user=user}}
+				class 感谢礼物{constructor(user,[quantity,gift]){this.user=user;this.gift=gift,this.quantity=quantity,this.quantifier=gift.quantifier,this.score=gift.score*quantity}}
 				const list=(()=>{
 					const list=get("Barrage-list")
 					const welcome=a=>{
@@ -503,7 +530,7 @@ var dummy=(()=>{
 							console.assert(b.tagName=="SPAN",b)
 							console.assert(b.className=="Barrage-text",b)
 							console.assert(b.innerText=="欢迎来到本直播间",b)
-							return new Welcome(b.previousElementSibling.title)
+							return new 欢迎(b.previousElementSibling.title)
 						}
 					}
 					const gift=a=>{
@@ -516,7 +543,7 @@ var dummy=(()=>{
 							const parseGift=image=>douyu.getGiftfromUrl(image.src)
 							const quantity=a=>a.lastElementChild.tagName=="SPAN"?Number(a.lastElementChild.innerText.substring(1)):1
 							const make=a=>[quantity(a),parseGift(a.firstElementChild)]
-							return new Gift(b.previousElementSibling.title,make(b))
+							return new 感谢礼物(b.previousElementSibling.title,make(b))
 						}
 					}
 					const sort=a=>{
@@ -548,7 +575,7 @@ var dummy=(()=>{
 					})()
 					const onMessageReceived=()=>{
 						const a=eventIterator(list,"DOMNodeInserted")
-						return asyncIterator.collect(a,sort)
+						return asyncIterator.map(a,sort).filterOutUnfedineds()
 					}
 					const testOnMessageReceived=passed=true||(async()=>{
 						for await(const a of onMessageReceived())console.log(a)
@@ -571,7 +598,7 @@ var dummy=(()=>{
 					}
 					return{list,input,send,sendButton,canSend,getRoomMsgCd,test}
 				})()
-				return{list,speak,Welcome,Gift}
+				return{list,speak,欢迎,感谢礼物}
 			})()
 			///@deprecated
 			Element.prototype.remove=function(){
@@ -898,7 +925,7 @@ var dummy=(()=>{
 			const prioritize=a=>{
 				const calc=a=>(
 					thanking=a=>a.score,
-					a instanceof room.wrapper.chat.Welcome?0:a instanceof room.wrapper.chat.Gift?thanking(a):console.error(a))
+					a instanceof room.wrapper.chat.欢迎?0:a instanceof room.wrapper.chat.感谢礼物?thanking(a):console.error(a))
 				return asyncIterator.map(a,a=>(a.sort((a,b)=>calc(a)-calc(b)),a.reverse(),a[0]))
 			}
 			///一层adapter，接收消息，缓存，依优先权排序后放出
@@ -1088,8 +1115,6 @@ var dummy=(()=>{
 				加入间隔时间=async function*(){
 					setup=[repeat(["大家好！","欢迎！"]),11e3]
 					;[messaging,interval]=setup
-					const manualOperating={}
-					const autoAnswering=()=>{}
 					////有一个预定时间来算权重
 					const broadcasting=async()=>(
 						a=messaging.next().value,
@@ -1101,7 +1126,7 @@ var dummy=(()=>{
 				}
 				多组滚动消息=async function*(){
 					//broadcast=(messages,interval)=>(time=Date.now()+interval,messages=repeat(messages),{getTime:()=>time,next:()=>(time=Date.now()+interval,messages.next().value)})
-					broadcast=(messages,interval)=>{let time=Date.now()+interval,messages1=repeat(messages)
+					broadcast=(messages,interval)=>{let time=Date.now()+interval,messages1=messages.repeat()
 						return{getTime:()=>time,next:()=>(time=Date.now()+interval,messages1.next().value)}}
 					testBroadcast=passed=true||(()=>(
 						a=broadcast(["欢迎！","大家好！"],5e3),
@@ -1145,14 +1170,13 @@ var dummy=(()=>{
 						,broadcast(["点点关注 刷刷小礼物  给老板比心 递茶 爱你们哟 HMUAA~"
 							,"感谢帮忙刷小礼物的小伙伴  给老板比心 递茶 爱你们哟 HMUAA~"
 							,"爱直播 爱斗鱼大家庭 最爱我雷哥","等你开播"],60e3)]
-					const manualOperating={}
 					const answer=a=>(
 						roomName="直播间",
 						welcome=a=>`欢迎「${a.user}」来到${roomName}！点点关注刷刷礼物爱你哟`,
 						getGift=a=>(a.quantity>1?a.quantity+a.quantifier:"")+a.gift.name,
 						///一句赋值多个的短写法：[aa,bb]=[1,22]
 						thanking=a=>(gift=getGift(a),`谢谢「${a.user}」的${gift}！嚒嚒哒爱你哟`),
-						a instanceof room.wrapper.chat.Welcome?welcome(a):a instanceof room.wrapper.chat.Gift?thanking(a):console.error(a)
+						a instanceof room.wrapper.chat.欢迎?welcome(a):a instanceof room.wrapper.chat.感谢礼物?thanking(a):console.error(a)
 					)
 					;(async()=>{for await(const a of 直播间弹幕)pool.push(answer(a))})()
 					const roll=()=>(
@@ -1165,20 +1189,13 @@ var dummy=(()=>{
 					while(true)yield roll()
 				}
 				处理手动操作=直播间弹幕=>{
-					手动操作=async function*(){for await(a of room.manualOperating())if(a)yield a}
+					手动操作=async function*(){for await(a of room.manualOperating())yield a}
 					手动操作测试=passed=true||(async()=>{for await(a of 手动操作())console.log(a)})()
 					///也许不用promise也能写，先试一下promise
-					改写成诺=(直播间弹幕)=>{
-						滚动消息=(messages,interval)=>(
-							/*
-							-[x] 无状态
-							*/
-							f=async function*(messages){
-								yield{预定时间:Date.now()+interval,内容:messages.next().value}
-								yield*f(messages)}
-							,f(repeat(messages))
-						)
-						滚动消息测试=passed=false||(async()=>(
+					有手动操作时取消发送=直播间弹幕=>{
+						滚动消息=(messages,interval)=>{let time=Date.now()+interval,messages1=repeat(messages)
+							return{get预定时间:()=>time,next:()=>(time=Date.now()+interval,messages1.next().value)}}
+						滚动消息测试=passed=true||(async()=>(
 							a=滚动消息(["初学编程","用Js写个捧场机器人","弹幕不能及时答复 敬请谅解","欢迎鱼吧留言"],5e4),
 							a=asyncIterator.take(a,5),
 							asyncIterator.iter(a,a=>console.log(`+${(a.预定时间-Date.now())/1000}`,a.内容))
@@ -1187,9 +1204,10 @@ var dummy=(()=>{
 							,滚动消息(["点点关注 刷刷小礼物  给老板比心 递茶 爱你们哟 HMUAA~"
 								,"感谢帮忙刷小礼物的小伙伴  给老板比心 递茶 爱你们哟 HMUAA~"
 								,"爱直播 爱斗鱼大家庭 最爱我雷哥","等你开播"],60e3)]
+						//池=[]
 						自动应答=a=>(
 							/*
-							-[ ] 可以打断，打断后下次重发这一条
+							- [ ] 可以打断，打断后下次重发这一条
 								问题：async yield时怎样知道被reject了？
 								以目前了解来看，如果用yield写法就不能响应reject
 								如果用next写法，那怎样能无状态？
@@ -1204,59 +1222,61 @@ var dummy=(()=>{
 								相对于抛异常中断，可能有更简单的方法，就是拆成两个函数，先准备就绪，再控制是否执行
 								大致思路，race输入滚动消息和发生手动操作
 									如果是滚动消息就发送，如果是手动操作就等待操作结束
-								三个函数
-									需要输入
-									输入完
-									发送
-								1. 等待一个需要需要输入的策略
-								2. 它开始输入
-								3. 等待它输入完的同时，等待另一个需要输入的策略
-									如果产生了另一个需要输入的策略，并且其优先权大于当前正在输入的策略，返回2
-								4. 输入完就发送，之后返回1
-
-								产生了两种把“自动应答”加进池的方法
-									1. （目前用的）产生一条需要应答的信息时加一条
-									2. 加策略
-								好像应该并用？有必要吗？
 
 								主要问题是分类合并应答
 								实际情况会比较复杂，因此自动答复应该统一单独处理
 								
 								另一个问题——似乎3会是死循环
 									可以只等待优先级更高的策略需要输入
-									
-								1. 等待一个需要需要输入的策略
-								2. 它开始输入
-								3. 等待它输入完的同时，等待另一个需要输入的策略
-									如果产生了另一个需要输入的策略，并且其优先权大于当前正在输入的策略，返回2
-								4. 输入完就发送，之后返回1
 
-								其实有更重要的待发消息时，有两种策略
+								更高优先级的发言产生时，有两种策略
 									1. 是现在一直考虑的，有更重要的消息时打断当前正在输入的
+										三个函数
+											需要输入
+											输入完
+											发送
+										1. 等待一个需要需要输入的策略
+										2. 它开始输入
+										3. 等待它输入完的同时，等待另一个需要输入的策略
+											如果产生了另一个需要输入的策略，并且其优先权大于当前正在输入的策略，返回2
+										4. 输入完就发送，之后返回1
 									2. 其实也可以考虑不打断，等当前消息输入、发送完后再处理，此策略主要是当手动操作时还是要打断
+										等于跳过1.3，不实现流的实时排序，先实现2
+								
+								还有——动态优先级——例如滚动信息依据等待的时间提升优先级，这种怎么办？
 							*/
 							f=a=>(
 								roomName="直播间",
 								welcome=a=>`欢迎「${a.user}」来到${roomName}！点点关注刷刷礼物爱你哟`,
 								getGift=a=>(a.quantity>1?a.quantity+a.quantifier:"")+a.gift.name,
 								thanking=a=>(gift=getGift(a),`谢谢「${a.user}」的${gift}！嚒嚒哒爱你哟`),
-								a instanceof room.wrapper.chat.Welcome?welcome(a):a instanceof room.wrapper.chat.Gift?thanking(a):console.error(a)
+								a instanceof room.wrapper.chat.欢迎?welcome(a):a instanceof room.wrapper.chat.感谢礼物?thanking(a):console.error(a)
 							),
-							假装手动输入(f(a))
+							{是自动应答:true,消息:f(a)}
 						)
 						;(async()=>{for await(const a of 直播间弹幕)池.push(自动应答(a))})()
-						///next要做成一个可以被reject的promise，被reject时保持发言池不变
-						///滚动消息.next也要可以reject
-						const next=()=>(
-							是自动应答=a=>a.constructor===Promise,
+						手动操作=手动操作()
+						测试手动操作=passed=true||(async()=>(
+							console.assert(!(await 手动操作.next()).value),
+							console.assert((await 手动操作.next()).value),
+							console.assert(!(await 手动操作.next()).value),
+							console.assert((await 手动操作.next()).value),
+							console.info(arguments.callee.name)
+						))()
+						const next=async()=>(
+							是自动应答=a=>a.是自动应答,
 							a=池.sort((a,b)=>(
 								f=a=>是自动应答(a)?1:a.get预定时间(),
 								f(a)-f(b)))[0],
-							是自动应答(a)?(池.splice(池.indexOf(a),1),a):a.next()
+							是自动应答(a)?(
+								输入后发送=(消息=await 假装手动输入(a.消息),{之后:()=>(池.splice(池.indexOf(a),1),消息)}),
+								处理手动操作=(await 手动操作.next(),{之后:async()=>(console.log("等待手动操作完成"),await 手动操作.next())}),
+								有手动操作时取消发送=(await Promise.race([输入后发送,处理手动操作])).之后())
+								:假装手动输入(a.next())
 						)
-						while(true)yield await next()
+						return asyncIterator.initial(next).filterOutUnfedineds()
 					}
-					return 改写成诺(直播间弹幕)
+					return 有手动操作时取消发送(直播间弹幕)
 				}
 				/*
 					打断当前操作
@@ -1291,13 +1311,12 @@ var dummy=(()=>{
 						,broadcast(["点点关注 刷刷小礼物  给老板比心 递茶 爱你们哟 HMUAA~"
 							,"感谢帮忙刷小礼物的小伙伴  给老板比心 递茶 爱你们哟 HMUAA~"
 							,"爱直播 爱斗鱼大家庭 最爱我雷哥","等你开播"],60e3)]
-					const manualOperating={}
 					const answer=a=>(
 						roomName="直播间",
 						welcome=a=>`欢迎「${a.user}」来到${roomName}！点点关注刷刷礼物爱你哟`,
 						getGift=a=>(a.quantity>1?a.quantity+a.quantifier:"")+a.gift.name,
 						thanking=a=>(gift=getGift(a),`谢谢「${a.user}」的${gift}！嚒嚒哒爱你哟`),
-						a instanceof room.wrapper.chat.Welcome?welcome(a):a instanceof room.wrapper.chat.Gift?thanking(a):console.error(a)
+						a instanceof room.wrapper.chat.欢迎?welcome(a):a instanceof room.wrapper.chat.感谢礼物?thanking(a):console.error(a)
 					)
 					;(async()=>{for await(const a of 直播间弹幕)pool.push(answer(a))})()
 					///next要做成一个可以被reject的promise，被reject时保持发言池不变
@@ -1316,7 +1335,8 @@ var dummy=(()=>{
 			}
 			return implement()
 		}
-		;(async()=>{for await(const a of timeline())console.log(a)})()
+		测试发送=a=>console.log(a)
+		;(async()=>{for await(const a of timeline())测试发送(a)})()
 	}
 	setup=(()=>{
 		const config=(()=>{
@@ -1325,7 +1345,7 @@ var dummy=(()=>{
 			const getGift=a=>(a.quantity>1?a.quantity+a.quantifier:"")+a.gift.name
 			///一句赋值多个的短写法：[aa,bb]=[1,22]
 			const thanking=a=>(gift=getGift(a),`谢谢「${a.user}」的${gift}！嚒嚒哒爱你哟`)
-			const answer=a=>a instanceof room.wrapper.chat.Welcome?welcome(a):a instanceof room.wrapper.chat.Gift?thanking(a):console.error(a)
+			const answer=a=>a instanceof room.wrapper.chat.欢迎?welcome(a):a instanceof room.wrapper.chat.感谢礼物?thanking(a):console.error(a)
 			const general={messages:[[],0],answer}
 			const 雷哥=(()=>{
 				const roomName="雷哥直播间"
@@ -1434,7 +1454,7 @@ var dummy=(()=>{
 				const welcome=a=>(friend=getFriend(a.user))?`欢迎${friend}回到${roomName}！`:`欢迎「${a.user}」来到${roomName}！点点关注刷刷礼物爱你哟`
 				const getGift=a=>(a.quantity>1?a.quantity+a.quantifier:"")+a.gift.name
 				const thanking=a=>(gift=getGift(a),(friend=getFriend(a.user))?`谢谢${friend}的${gift}！${friend}辛苦啦嚒嚒哒`:`谢谢「${a.user}」的${gift}！嚒嚒哒爱你哟`)
-				const answer=a=>a instanceof room.wrapper.chat.Welcome?welcome(a):a instanceof room.wrapper.chat.Gift?thanking(a):console.error(a)
+				const answer=a=>a instanceof room.wrapper.chat.欢迎?welcome(a):a instanceof room.wrapper.chat.感谢礼物?thanking(a):console.error(a)
 				return{messages,answer}
 			})()
 			const 秀秀=(()=>{
@@ -1449,7 +1469,7 @@ var dummy=(()=>{
 				const getGift=a=>(a.quantity>1?a.quantity+a.quantifier:"")+a.gift.name
 				const thanking=a=>(gift=getGift(a),(friend=getFriend(a.user))?`谢谢${friend}的${gift}！`:undefined)
 				const answer=a=>{
-					return a instanceof room.wrapper.chat.Welcome?welcome(a):a instanceof room.wrapper.chat.Gift?thanking(a):console.error(a)
+					return a instanceof room.wrapper.chat.欢迎?welcome(a):a instanceof room.wrapper.chat.感谢礼物?thanking(a):console.error(a)
 				}
 				return{messages:[[],0],answer}
 			})()
@@ -1481,7 +1501,7 @@ var dummy=(()=>{
 				const welcome=a=>(friend=getFriend(a.user))?`${friend}回来啦！`:undefined
 				const getGift=a=>(a.quantity>1?a.quantity+a.quantifier:"")+a.gift.name
 				const thanking=a=>(gift=getGift(a),(friend=getFriend(a.user))?`谢谢${friend}的${gift}！`:undefined)
-				const answer=a=>a instanceof room.wrapper.chat.Welcome?welcome(a):a instanceof room.wrapper.chat.Gift?thanking(a):console.error(a)
+				const answer=a=>a instanceof room.wrapper.chat.欢迎?welcome(a):a instanceof room.wrapper.chat.感谢礼物?thanking(a):console.error(a)
 				return{messages:[[],0],answer}
 			})()
 			const empty=runTest={messages:[[],0],answer:()=>{}}
