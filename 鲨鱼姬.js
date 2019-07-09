@@ -1117,92 +1117,14 @@ var dummy=(()=>{
 				///主要自动感谢、欢迎太快太明显，其次是用户手动发言之后紧接一条自动发言也很明显
 				///但是像抽奖、起哄的情况，水友们都会直接复制粘贴，就不必每条发言都有输入时间了
 				假装手动输入=a=>(rate=333,wait(a.length*rate,()=>a))
-				先试一下滚动消息=async function*(){
-					messaging=repeat(["大家好！"])
-					////有一个预定时间来算权重
-					const broadcasting=()=>(
-						a=messaging.next().value,
-						假装手动输入(a)
-					)
-					const roll=()=>{return broadcasting()}
-					while(true)yield roll()
-				}
-				加入间隔时间=async function*(){
-					setup=[repeat(["大家好！","欢迎！"]),11e3]
-					;[messaging,interval]=setup
-					////有一个预定时间来算权重
-					const broadcasting=async()=>(
-						a=messaging.next().value,
-						[a]=await Promise.all([假装手动输入(a),wait(interval)]),
-						a
-					)
-					const roll=()=>{return broadcasting()}
-					while(true)yield roll()
-				}
-				多组滚动消息=async function*(){
-					//broadcast=(messages,interval)=>(time=Date.now()+interval,messages=repeat(messages),{getTime:()=>time,next:()=>(time=Date.now()+interval,messages.next().value)})
-					broadcast=(messages,interval)=>{let time=Date.now()+interval,messages1=messages.repeat()
-						return{getTime:()=>time,next:()=>(time=Date.now()+interval,messages1.next().value)}}
-					testBroadcast=passed=true||(()=>(
-						a=broadcast(["欢迎！","大家好！"],5e3),
-						console.log(a.getTime()),console.log(a.next()),console.log(a.getTime()),console.log(a.next()),console.log(a.getTime())
-					))()
-					config=[broadcast(["初学编程","用Js写个捧场机器人","弹幕不能及时答复 敬请谅解","欢迎鱼吧留言"],5e3)
-						,broadcast(["点点关注 刷刷小礼物  给老板比心 递茶 爱你们哟 HMUAA~"
-							,"感谢帮忙刷小礼物的小伙伴  给老板比心 递茶 爱你们哟 HMUAA~"
-							,"爱直播 爱斗鱼大家庭 最爱我雷哥","等你开播"],60e3)]
-					const broadcasting=()=>(
-						a=config.sort((a,b)=>a.getTime()-b.getTime())[0].next(),
-						假装手动输入(a)
-					)
-					const roll=()=>{return broadcasting()}
-					while(true)yield roll()
-				}
 				/*
-					消息分类处理的排他性
-					整体上消息处理，可能是排他性的，没有需要交叉处理的情况
-					自动感谢的其实不是水友发言，而是直播间系统消息，系统消息和水友发言的处理好像不会交叉
-					但对长时间没有互动发言和答复个别消息的情况目前还不完全确定
-					可能把消息队列先交前者处理再交后者，是有优先级关系而非完全排他的
-					或者也可能不是单条消息处理上的排他性，而是整个消息列表处理上的排他性
+				# 消息分类处理的排他性
+				整体上消息处理，可能是排他性的，没有需要交叉处理的情况
+				自动感谢的其实不是水友发言，而是直播间系统消息，系统消息和水友发言的处理好像不会交叉
+				但对长时间没有互动发言和答复个别消息的情况目前还不完全确定
+				可能把消息队列先交前者处理再交后者，是有优先级关系而非完全排他的
+				或者也可能不是单条消息处理上的排他性，而是整个消息列表处理上的排他性
 				*/
-				接收直播间弹幕并把应答消息加到发言池中=async function*(直播间弹幕){
-					/*
-					排他性
-					整体上消息处理，可能是排他性的，没有需要交叉处理的情况
-					自动感谢的其实不是水友发言，而是直播间系统消息，系统消息和水友发言的处理好像不会交叉
-					但对长时间没有互动发言和答复个别消息的情况目前还不完全确定
-					可能把消息队列先交前者处理再交后者，是有优先级关系而非完全排他的
-					或者也可能不是单条消息处理上的排他性，而是整个消息列表处理上的排他性
-					*/
-					broadcast=(messages,interval)=>{let time=Date.now()+interval,messages1=repeat(messages)
-						return{getTime:()=>time,next:()=>(time=Date.now()+interval,messages1.next().value)}}
-					testBroadcast=passed=true||(()=>(
-						a=broadcast(["欢迎！","大家好！"],5e3),
-						console.log(a.getTime()),console.log(a.next()),console.log(a.getTime()),console.log(a.next()),console.log(a.getTime())
-					))()
-					pool=[broadcast(["初学编程","用Js写个捧场机器人","弹幕不能及时答复 敬请谅解","欢迎鱼吧留言"],5e3)
-						,broadcast(["点点关注 刷刷小礼物  给老板比心 递茶 爱你们哟 HMUAA~"
-							,"感谢帮忙刷小礼物的小伙伴  给老板比心 递茶 爱你们哟 HMUAA~"
-							,"爱直播 爱斗鱼大家庭 最爱我雷哥","等你开播"],60e3)]
-					const answer=a=>(
-						roomName="直播间",
-						welcome=a=>`欢迎「${a.user}」来到${roomName}！点点关注刷刷礼物爱你哟`,
-						getGift=a=>(a.quantity>1?a.quantity+a.quantifier:"")+a.gift.name,
-						///一句赋值多个的短写法：[aa,bb]=[1,22]
-						thanking=a=>(gift=getGift(a),`谢谢「${a.user}」的${gift}！嚒嚒哒爱你哟`),
-						a instanceof room.wrapper.chat.欢迎?welcome(a):a instanceof room.wrapper.chat.感谢礼物?thanking(a):console.error(a)
-					)
-					;(async()=>{for await(const a of 直播间弹幕)pool.push(answer(a))})()
-					const roll=()=>(
-						a=pool.sort((a,b)=>(
-							f=a=>a.constructor===String?1:a.getTime(),
-							f(a)-f(b)))[0],
-						a=a.constructor===String?(pool.splice(pool.indexOf(a),1),a):a.next(),
-						假装手动输入(a)
-					)
-					while(true)yield roll()
-				}
 				处理手动操作=直播间弹幕=>{
 					手动操作=async function*(){for await(a of room.manualOperating())yield a}
 					手动操作测试=passed=true||(async()=>{for await(a of 手动操作())console.log(a)})()
@@ -1219,10 +1141,28 @@ var dummy=(()=>{
 							,滚动消息(["点点关注 刷刷小礼物  给老板比心 递茶 爱你们哟 HMUAA~"
 								,"感谢帮忙刷小礼物的小伙伴  给老板比心 递茶 爱你们哟 HMUAA~"
 								,"爱直播 爱斗鱼大家庭 最爱我雷哥","等你开播"],60e3)]
-						//池=[]
 						自动应答=a=>(
 							/*
-							- [ ] 可以打断，打断后下次重发这一条
+							- [ ] 打断当前操作——从发言时机确定优先级，进而产生打断规则
+								*用户手动操作*立即打断其他一切
+								抽奖、凑热闹同上，直播间一出现大量水友刷相同弹幕时立即加入，发言按钮冷却了立即发，这时候没人注意谁发了什么
+								应答类（感谢、回答、搭话）就需要一点延迟时间，否则太明显，并且话不能太密，每次要间隔几条水友发言
+									权重低的发言在准备时间会被高的打断
+									这就导致无法一一感谢、回答，
+								滚动消息是按时间间隔
+								热场是按一段时间内水友发言少于预期条数
+								本身就是空闲时间发的，估计没人注意，不必延迟，滚动消息经常都会是大段，拆成多条连续发，热场不要多条连续
+								后面也许会支持一些复杂的发言时机，譬如**有五位水友进入或一分钟内有至少人进入**，但暂时不考虑……
+								- [ ] 规则
+									- [ ] 用户手动操作会打断任何自动发言
+										- [x] 打断自动应答
+											- [x] 打断后下次重发这一条
+									- [ ] 如果正在发闲时发言（带动发言）时收到新的水友发言（闲时结束），则会打断闲时发言
+									- [ ] 高优先级的感谢打断低优先级的
+									- [ ] 先试一下高优先级的感谢打断低优先级的，自动答复做成可以reject的promise
+								- [ ] 打断后下次重发这一条
+							# 实现
+							1. reject
 								问题：async yield时怎样知道被reject了？
 								以目前了解来看，如果用yield写法就不能响应reject
 								如果用next写法，那怎样能无状态？
@@ -1234,31 +1174,34 @@ var dummy=(()=>{
 									async的好处在于可以catch具体的异常
 								因此要尝试用async写
 
-								相对于抛异常中断，可能有更简单的方法，就是拆成两个函数，先准备就绪，再控制是否执行
+							2. [√] 相对于抛异常中断，可能有更简单的方法，就是拆成两个函数，先准备就绪，再控制是否执行
 								大致思路，race输入滚动消息和发生手动操作
 									如果是滚动消息就发送，如果是手动操作就等待操作结束
 
-								主要问题是分类合并应答
-								实际情况会比较复杂，因此自动答复应该统一单独处理
-								
-								另一个问题——似乎3会是死循环
-									可以只等待优先级更高的策略需要输入
+							更高优先级的发言产生时，有两种策略
+								1. 是现在一直考虑的，有更重要的消息时打断当前正在输入的
+									三个函数
+										需要输入
+										输入完
+										发送
+									1. 等待一个需要需要输入的策略
+									2. 它开始输入
+									3. 等待它输入完的同时，等待另一个需要输入的策略
+										如果产生了另一个需要输入的策略，并且其优先权大于当前正在输入的策略，返回2
+									4. 输入完就发送，之后返回1
+								2. 其实也可以考虑不打断，等当前消息输入、发送完后再处理，此策略主要是当手动操作时还是要打断
+									等于跳过1.3，不实现流的实时排序，先实现2
 
-								更高优先级的发言产生时，有两种策略
-									1. 是现在一直考虑的，有更重要的消息时打断当前正在输入的
-										三个函数
-											需要输入
-											输入完
-											发送
-										1. 等待一个需要需要输入的策略
-										2. 它开始输入
-										3. 等待它输入完的同时，等待另一个需要输入的策略
-											如果产生了另一个需要输入的策略，并且其优先权大于当前正在输入的策略，返回2
-										4. 输入完就发送，之后返回1
-									2. 其实也可以考虑不打断，等当前消息输入、发送完后再处理，此策略主要是当手动操作时还是要打断
-										等于跳过1.3，不实现流的实时排序，先实现2
+							主要问题是分类合并应答
+							实际情况会比较复杂，因此自动答复应该统一单独处理
 								
-								还有——动态优先级——例如滚动信息依据等待的时间提升优先级，这种怎么办？
+							另一个问题——似乎3会是死循环
+								可以只等待优先级更高的策略需要输入
+								
+							还有——动态优先级——例如滚动信息依据等待的时间提升优先级，这种怎么办？
+
+							#（待答复的）消息产生时编排好发言列表、还是临发出答复信息时编排？
+							由于[手动操作]是不可预料的情况，也就不能预料手动操作后自动发言队列的情况，只能自动发言前编排
 							*/
 							f=a=>(
 								roomName="直播间",
@@ -1270,13 +1213,6 @@ var dummy=(()=>{
 							{是自动应答:true,消息:f(a)}
 						)
 						;(async()=>{for await(const a of 直播间弹幕)池.push(自动应答(a))})()
-						//const 手动操作2=手动操作()
-						//const 测试手动操作=passed=true||(async()=>{
-						//	console.assert((await 手动操作2.next()).value)
-						//	console.assert(!(await 手动操作2.next()).value)
-						//	console.assert((await 手动操作2.next()).value)
-						//	console.assert(!(await 手动操作2.next()).value)
-						//})()
 						const 是自动应答=a=>a.是自动应答
 						const 输入后发送=async a=>(
 							console.log("开始假装手动输入自动应答"),
@@ -1303,10 +1239,7 @@ var dummy=(()=>{
 									console.log(!(await 手动操作2.next()).value)
 									)})
 						const next=async()=>(
-							(async a=>是自动应答(a)?(
-								console.log("自动应答"),
-								xxx=(await Promise.race([输入后发送(a),处理手动操作()])),xxx.之后()
-								)
+							(async a=>是自动应答(a)?((await Promise.race([输入后发送(a),处理手动操作()])).之后())
 								:假装手动输入(a.next()))
 							(池.sort((a,b)=>(
 								f=a=>是自动应答(a)?1:a.get预定时间(),
@@ -1316,59 +1249,6 @@ var dummy=(()=>{
 						//return[]
 					}
 					return 有手动操作时取消发送(直播间弹幕)
-				}
-				/*
-					打断当前操作
-					用户手动操作一定会打断任何自动发言
-					如果正在发闲时发言（带动发言）时收到新的水友发言，则会打断闲时发言
-					高优先级的感谢一定会打断低优先级的
-					先试一下高优先级的感谢打断低优先级的，自动答复做成可以reject的promise
-
-					尝试一下各类发言，各自确定发言时机？然后用promise.any
-					*这样是否还会有打断的问题？*——仍然有
-						*用户手动操作*立即打断其他一切
-						抽奖、凑热闹同上，直播间一出现大量水友刷相同弹幕时立即加入，发言按钮冷却了立即发，这时候没人注意谁发了什么
-						应答类（感谢、回答、搭话）就需要一点延迟时间，否则太明显，并且话不能太密，每次要间隔几条水友发言
-							权重低的发言在准备时间会被高的打断
-							这就导致无法一一感谢、回答，
-						滚动消息是按时间间隔
-						热场是按一段时间内水友发言少于预期条数
-						本身就是空闲时间发的，估计没人注意，不必延迟，滚动消息经常都会是大段，拆成多条连续发，热场不要多条连续
-					后面也许会支持一些复杂的发言时机，譬如**有五位水友进入或一分钟内有至少人进入**，但暂时不考虑……
-
-					#（待答复的）消息产生时编排好发言列表、还是临发出答复信息时编排？
-					由于[手动操作]是不可预料的情况，也就不能预料手动操作后自动发言队列的情况，只能自动发言前编排
-				*/
-				高优先级的感谢打断低优先级的=async function*(直播间弹幕){
-					broadcast=(messages,interval)=>{let time=Date.now()+interval,messages1=repeat(messages)
-						return{getTime:()=>time,next:()=>(time=Date.now()+interval,messages1.next().value)}}
-					testBroadcast=passed=true||(()=>(
-						a=broadcast(["欢迎！","大家好！"],5e3),
-						console.log(a.getTime()),console.log(a.next()),console.log(a.getTime()),console.log(a.next()),console.log(a.getTime())
-					))()
-					pool=[broadcast(["初学编程","用Js写个捧场机器人","弹幕不能及时答复 敬请谅解","欢迎鱼吧留言"],5e3)
-						,broadcast(["点点关注 刷刷小礼物  给老板比心 递茶 爱你们哟 HMUAA~"
-							,"感谢帮忙刷小礼物的小伙伴  给老板比心 递茶 爱你们哟 HMUAA~"
-							,"爱直播 爱斗鱼大家庭 最爱我雷哥","等你开播"],60e3)]
-					const answer=a=>(
-						roomName="直播间",
-						welcome=a=>`欢迎「${a.user}」来到${roomName}！点点关注刷刷礼物爱你哟`,
-						getGift=a=>(a.quantity>1?a.quantity+a.quantifier:"")+a.gift.name,
-						thanking=a=>(gift=getGift(a),`谢谢「${a.user}」的${gift}！嚒嚒哒爱你哟`),
-						a instanceof room.wrapper.chat.欢迎?welcome(a):a instanceof room.wrapper.chat.感谢礼物?thanking(a):console.error(a)
-					)
-					;(async()=>{for await(const a of 直播间弹幕)pool.push(answer(a))})()
-					///next要做成一个可以被reject的promise，被reject时保持发言池不变
-					///broadcast.next也要可以reject
-					const next=()=>(
-						isAnswering=a=>a.constructor===String,
-						a=pool.sort((a,b)=>(
-							f=a=>isAnswering(a)?1:a.getTime(),
-							f(a)-f(b)))[0],
-						getText=a=>isAnswering(a)?(pool.splice(pool.indexOf(a),1),a):a.next(),
-						假装手动输入(getText(a))
-					)
-					while(true)yield next()
 				}
 				return 处理手动操作(room.wrapper.chat.list)
 			}
