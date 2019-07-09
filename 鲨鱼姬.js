@@ -23,11 +23,11 @@
 初学JavaScript，很多写法都在试探，请海涵
 
 # Generator
-- for await的问题是——break后，该迭代会成`GeneratorStatus:closed`，不能再次迭代
+- for await的问题是——**break**后，该迭代会成`GeneratorStatus:closed`，不能再次迭代
 	（查了MDN，非异步迭代也是这样）
 	大量查询也没有找到close之后再open的方法，
 	也提了问题：https://stackoverflow.com/questions/55276664/how-to-reopen-asynciterator-after-broke-a-for-await-loop
-	需要重复使用时应该调用next()
+	需要重复使用，并且需要break时，应该调用next()
 - 声明next的问题是——会需要状态（迭代写法），应该用yield*（递归写法）
 # 关于使用`==`还是`===`
 - `==`可能会调用valueOf函数（可能是当左右不同类型时）[参考](https://www.zhihu.com/question/31442029/answer/77772323)
@@ -54,8 +54,11 @@ var dummy=(()=>{
 			for await(const i of c)console.log(i)
 		}
 	}
-	const iter=(()=>(
-		numbers=(()=>{
+	///对不是async函数也可以await，就是说处理异步迭代的代码可以直接处理非异步的
+		///那是不是**所有非异步代码都直接是异步的**呢？？
+		///所以可能要把完全没必要异步的函数重写成非异步的
+	const iter=(()=>{
+		const numbers=(()=>{
 			const recursive=function*(i=0)/*递归*/{yield i++;yield*recursive(i)}
 			///经过测试迭代比递归快很多，大概只用了十几分之一时间，可能是因为迭代优先权高
 			const testTryRecursive=passed=true||(a=recursive(),
@@ -73,23 +76,23 @@ var dummy=(()=>{
 				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:4,done:false}),b))
 			return recursive
 		})()
-		,repeat=function*(l,i=0){yield l[i%l.length];yield*repeat(l,++i)}
-		,testRepeat=passed=true||(()=>(a=repeat([0,1,2]),
-			nextShouldBe=c=>[(b=a.next(),JSON.stringify(b)==JSON.stringify({value:c,done:false})),b.value],
-			console.assert(...nextShouldBe(0)),console.assert(...nextShouldBe(1)),console.assert(...nextShouldBe(2))
-			,console.assert(...nextShouldBe(0)),console.assert(...nextShouldBe(1)),
+		const repeat=function*(l,i=0){yield l[i%l.length];yield*repeat(l,++i)}
+		const testRepeat=passed=true||(()=>(a=repeat([0,1,2]),
+			f=nextShouldBe=c=>[(b=a.next(),JSON.stringify(b)==JSON.stringify({value:c,done:false})),b.value],
+			console.assert(...f(0)),console.assert(...f(1)),console.assert(...f(2))
+			,console.assert(...f(0)),console.assert(...f(1)),
 			a.next(),a.next(),a.next(),a.next(),
 			console.assert(...nextShouldBe(0))))()
-		,skip=(a,l=1)=>l<1?a:(a.next(),skip(a,--l))
-		,testSkip=passed=true||(()=>(
-			b=skip(numbers(),3).next(),console.assert(JSON.stringify(b)==JSON.stringify({value:3,done:false}),b),
-			b=skip(numbers(),13).next(),console.assert(JSON.stringify(b)==JSON.stringify({value:13,done:false}),b),
-			b=skip(numbers(),23).next(),console.assert(JSON.stringify(b)==JSON.stringify({value:23,done:false}),b)))()
-		,p=Object.getPrototypeOf(function*(){}).prototype
-		,p.skip=function(l){return skip(this,l)}
-		,{repeat}
-	))()
-	const asyncIterator=(()=>{
+		const skip=(a,l=1)=>l<1?a:(a.next(),skip(a,--l))
+		const p=Object.getPrototypeOf(function*(){}).prototype
+		///必须用完整function格式加prototype，因为箭头函数**没有this**
+		p.skip=function(l){return skip(this,l)}
+		const testSkip=passed=false||(()=>(
+			b=numbers().skip(3).next(),console.assert(JSON.stringify(b)==JSON.stringify({value:3,done:false}),b),
+			b=numbers().skip(13).next(),console.assert(JSON.stringify(b)==JSON.stringify({value:13,done:false}),b),
+			b=numbers().skip(23).next(),console.assert(JSON.stringify(b)==JSON.stringify({value:23,done:false}),b)))()
+	//})()
+	//const asyncIterator=(()=>{
 		const learningAsync=(()=>{
 			let tryAsync=(()=>{
 				function rafAsync() {
@@ -153,41 +156,20 @@ var dummy=(()=>{
 			////就是说，正常大括号中第一个return就会结束执行（后面全忽略）
 			////但try之后一定会再执行finally（或catch），其中可以覆盖return！*重要的事情说两遍*
 		})()
-		///发现了什么？对不是async函数也可以await，就是说处理异步迭代的代码可以直接处理非异步的
-		///那是不是**所有非异步代码都直接是异步的**呢？？
-		///所以可能要把完全没必要异步的函数重写成非异步的
-		const numbers=(()=>{
-			const recursive=function*(i=0)/*递归*/{yield i++;yield*recursive(i)}
-			///经过测试迭代比递归快很多，大概只用了十几分之一时间，可能是因为迭代优先权高
-			const testTryRecursive=passed=true||(a=recursive(),
-				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:0,done:false}),b),
-				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:1,done:false}),b),
-				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:2,done:false}),b),
-				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:3,done:false}),b),
-				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:4,done:false}),b))
-			const iterate=function*()/*迭代*/{i=0;while(true)yield i++} //需要特别注意外层不能有同名i的变量！
-			const testTryIterate=passed=true||(a=iterate(),
-				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:0,done:false}),b),
-				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:1,done:false}),b),
-				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:2,done:false}),b),
-				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:3,done:false}),b),
-				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:4,done:false}),b))
-			return recursive
-		})()
 		const initInfinite=f=>map(numbers(),f)
 		///@deprecated 生成器迭代后会关闭，下面有解释
 		const takeThroughIterate=async function*(l,count){for await(const i of l){if(count-->0)yield i;else break}}
 		const take=async function*(l,count){for(let i=0;i<count;i++)yield(await l.next()).value}
+		const q=Object.getPrototypeOf(async function*(){}).prototype
+		p.take=function(count){return take(this,count)}
 		///**调用异步函数时，不管这个被调用到的函数里面是否await了，如果调用的函数需要等被调用的函数的话，一定要在调用函数中写await**
 		///还是刚刚理解到这一点……
-		const testTake=passed=true||(async()=>(a=take(numbers(),5),
-			b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:0,done:false}),b),
-			b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:1,done:false}),b),
-			b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:2,done:false}),b),
-			b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:3,done:false}),b),
-			b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:4,done:false}),b),
-			b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:undefined,done:true}),b),
-			b=await a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:undefined,done:true}),b),
+		const testTake=passed=true||(async()=>(a=numbers().take(5),
+			f=nextShouldBe=async c=>[(b=await a.next(),JSON.stringify(b)==JSON.stringify({value:c,done:false})),b.value],
+			console.assert(...await f(0)),console.assert(...await f(1)),console.assert(...await f(2)),
+			console.assert(...await f(3)),console.assert(...await f(4)),
+			noMore=async()=>[(b=await a.next(),JSON.stringify(b)==JSON.stringify({value:undefined,done:true})),b.value],
+			console.assert(...await noMore()),console.assert(...await noMore()),console.assert(...await noMore()),
 			b=await a.next(),console.assert(b.done!=false),b))()
 	
 		const map=async function*(l,f,i=0){const a=await l.next();a.done||(yield f(a.value,i),yield*map(l,f,++i))}
@@ -202,11 +184,7 @@ var dummy=(()=>{
 		const filter=(()=>{const f2=async function*(l,f,i=0){for await(const j of l){if(f(j,i))yield j}};return(l,f)=>f2(l,f)})()
 		const testFilter=passed=true||(async()=>(a=filter(numbers(),c=>c%2==0),b=(await a.next()).value,console.assert(b==0,b),
 			b=(await a.next()).value,console.assert(b==2,b),b=(await a.next()).value,console.assert(b==4,b)))()
-		const skip=(a,l=1)=>l<1?a:(a.next(),skip(a,--l))
-		const testSkip=passed=true||(async()=>(
-			b=await skip(numbers(),3).next(),console.assert(JSON.stringify(b)==JSON.stringify({value:3,done:false}),b),
-			b=await skip(numbers(),13).next(),console.assert(JSON.stringify(b)==JSON.stringify({value:13,done:false}),b),
-			b=await skip(numbers(),23).next(),console.assert(JSON.stringify(b)==JSON.stringify({value:23,done:false}),b)))()
+		q.filter=function(f){return filter(this,f)}
 		
 		const logTest=async l=>{for await(const i of l)console.log(i)}
 		filterOutUnfedineds=async function*(l){yield*filter(l,i=>i!=undefined)}
@@ -456,12 +434,13 @@ var dummy=(()=>{
 			})()
 			return resolution12ThroughCaching
 		})()
-		const p=Object.getPrototypeOf(async function*(){}).prototype
-		p.preload=preload
-		p.filterOutUnfedineds=function(){return filterOutUnfedineds(this)}
+		q.preload=preload
+		q.filterOutUnfedineds=function(){return filterOutUnfedineds(this)}
 		
+		///以下是时间、事物相关的
+
 		///TODO:这个函数可能需要整理合并
-		const frequently=async function*(check,interval=3e2){while(true)yield timeoutPromise(interval,check)}
+		const frequently=async function*(check,interval=333){while(true)yield timeoutPromise(interval,check)}
 		const testFrequently=passed=true||(async()=>{
 			var s=true
 			const check=()=>s
@@ -488,8 +467,15 @@ var dummy=(()=>{
 				yield true;await timeoutPromise();}
 			for await(const b of tickOnChange(a()))console.log(b)
 		})()
+		const till=(a,f)=>frequently(a)
+		Function.till=function(l){return till(this,l)}
+		///写得好累啊…………又要自己写Seq.skipWhile了啊……想试试Fable……
+		const testTill=passed=true||(async()=>{
+
+		})()
 		return{initInfinite,take,iter,map,filter,preload,timeoutPromise,repeat,frequently,tickOnChange}
 	})()
+	const asyncIterator=iter
 	const douyu={
 		gifts:(()=>{
 			class 礼物{constructor(name,quantifier,id,score=1){this.name=name;this.quantifier=quantifier,this.id=id,this.score=score}}
@@ -534,6 +520,11 @@ var dummy=(()=>{
 		const wrapper=(()=>{
 			const id=Number(window.location.pathname.substring(1))
 			let get=a=>document.getElementsByClassName(a)[0]
+
+			const gotReady=async a=>(await((()=>a!==undefined).till()),a)
+			Function.prototype.gotReady=function(){return gotReady(this)}
+			const asyncGet=a=>(()=>get(a)).gotReady()
+			const testAsyncGet=passed=true||(async()=>(console.log("testAsyncGet"),console.assert(await asyncGet("wfs-2a8e83")!==undefined),console.log("testAsyncGet2")))()
 			const chat=(()=>{
 				class 欢迎{constructor(user){this.user=user}}
 				class 感谢礼物{constructor(user,[quantity,gift]){this.user=user;this.gift=gift,this.quantity=quantity,this.quantifier=gift.quantifier,this.score=gift.score*quantity}}
@@ -632,6 +623,8 @@ var dummy=(()=>{
 			let hideDanmu=()=>danmuCloseButton.click()
 			let pageFullscreenButton=get("wfs-2a8e83") //关闭弹幕按钮
 			let pageFullscreen=()=>pageFullscreenButton.click()
+			let getPageFullscreenButton=get("wfs-2a8e83") //关闭弹幕按钮
+			let pageFullscreen2=async()=>(await pageFullscreenButton.gotReady()).click()
 			let getBackpackPopup=()=>get("Backpack JS_Backpack") //背包弹窗
 			let isShowingBackpack=()=>getBackpackPopup()!=undefined
 			let getBubbleBox=()=>get("bubble-box-418e1e") //颜值主播右下角的点赞泡泡动画
