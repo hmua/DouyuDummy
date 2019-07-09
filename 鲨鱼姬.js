@@ -23,10 +23,25 @@
 初学JavaScript，很多写法都在试探，请海涵
 
 # Generator
-- 做for await，break后，该迭代会成`GeneratorStatus:closed`，不能再次迭代
+- for await的问题是——break后，该迭代会成`GeneratorStatus:closed`，不能再次迭代
 	（查了MDN，非异步迭代也是这样）
 	大量查询也没有找到close之后再open的方法，
 	也提了问题：https://stackoverflow.com/questions/55276664/how-to-reopen-asynciterator-after-broke-a-for-await-loop
+	需要重复使用时应该调用next()
+- 声明next的问题是——会需要状态（迭代写法），应该用yield*（递归写法）
+# 关于使用`==`还是`===`
+- `==`可能会调用valueOf函数（可能是当左右不同类型时）[参考](https://www.zhihu.com/question/31442029/answer/77772323)
+	从这点来看似乎确定不会因valueOf函数引发问题的话，并不是必须放弃使用`==`
+- `===`是明确的“不转类型地相等”，意义更明确，使读代码时可以不会产生误解[参考](https://www.zhihu.com/question/31442029/answer/77931120)
+	这点很有说服性，由于前一点只是“非必要”，因此应该采用第二点，在`===`更符合本意时使用`===`
+	TODO: 把当前所有`==`都过一遍
+# 没用const声明的“变量”**是全局共享的！**（应该也包括没用var和let声明的）
+	主要强调——“胖箭头函数”后面的用小括号括起来的部分，或者没用胖箭头函数的小括号也是一样
+	这个变量如果在小括号所处的范围没有定义，外层范围都没有定义的话，就会是全局的！
+	在任何地方赋值时都是全局的！
+	单线程时貌似没有问题，多线程一定会有问题！我去！要好好改一下了……
+# 其它一些总结的小原则
+	全局性的改写会影响其他人，比如把`==`和`===`功能对调，会使他人阅读时产生歧义，别人复用代码时也会忽略这种更改
 */
 var dummy=(()=>{
 	///ES6 Iterators, RxJS, IxJS and the Async Iterators proposal https://blog.scottlogic.com/2016/06/29/es6-iterators.html
@@ -159,7 +174,7 @@ var dummy=(()=>{
 				b=a.next(),console.assert(JSON.stringify(b)==JSON.stringify({value:4,done:false}),b))
 			return recursive
 		})()
-		const initial=f=>map(numbers(),f)
+		const initInfinite=f=>map(numbers(),f)
 		///@deprecated 生成器迭代后会关闭，下面有解释
 		const takeThroughIterate=async function*(l,count){for await(const i of l){if(count-->0)yield i;else break}}
 		const take=async function*(l,count){for(let i=0;i<count;i++)yield(await l.next()).value}
@@ -459,7 +474,7 @@ var dummy=(()=>{
 		///TODO:这个函数可能需要整理合并
 		const tickOnChange=async function*(generator,previous){
 			a=(await generator.next()).value
-			if(a!=previous)yield a//这样写也是可以的——yield外面加个括号就好：a!=previous&&(yield a)
+			if(previous!==undefined&&a!==previous)yield a//这样写也是可以的——yield外面加个括号就好：a!=previous&&(yield a)
 			yield*tickOnChange(generator,a)
 		}
 		const testTickOnChange=passed=true||(async()=>{
@@ -473,7 +488,7 @@ var dummy=(()=>{
 				yield true;await timeoutPromise();}
 			for await(const b of tickOnChange(a()))console.log(b)
 		})()
-		return{initial,take,iter,map,filter,preload,timeoutPromise,repeat,frequently,tickOnChange}
+		return{initInfinite,take,iter,map,filter,preload,timeoutPromise,repeat,frequently,tickOnChange}
 	})()
 	const douyu={
 		gifts:(()=>{
@@ -914,7 +929,7 @@ var dummy=(()=>{
 				///BUG:因为这个filter，没有可以回答的弹幕时会死循环检测不会等下个间隔
 				///几个方案，一是没有可回复弹幕时返回空或者undefined；二是强制间隔
 				///-	这里面会知道间隔时间吗？间隔时间从哪来的？
-				///-	实际使用中，如果有滚动消息，就一定会返回一条滚动消息，如果没有滚动消息时……
+				///-	如果有滚动消息，就一定会返回一条滚动消息，如果没有滚动消息时……
 				///三是等待到有可以回复的弹幕为止
 				///-	这就要要考虑用户手动发弹幕或者送礼物，导致等待被取消的情况，除非把用户操作也整合到时间线里，能吗？
 				///-	好像可以……
@@ -1200,7 +1215,7 @@ var dummy=(()=>{
 							a=asyncIterator.take(a,5),
 							asyncIterator.iter(a,a=>console.log(`+${(a.预定时间-Date.now())/1000}`,a.内容))
 						))()
-						池=[滚动消息(["初学编程","用Js写个捧场机器人","弹幕不能及时答复 敬请谅解","欢迎鱼吧留言"],5e3)
+						池=[滚动消息(["初学编程","用Js写个捧场机器人","弹幕不能及时答复 敬请谅解","欢迎鱼吧留言"],55e3)
 							,滚动消息(["点点关注 刷刷小礼物  给老板比心 递茶 爱你们哟 HMUAA~"
 								,"感谢帮忙刷小礼物的小伙伴  给老板比心 递茶 爱你们哟 HMUAA~"
 								,"爱直播 爱斗鱼大家庭 最爱我雷哥","等你开播"],60e3)]
@@ -1255,26 +1270,50 @@ var dummy=(()=>{
 							{是自动应答:true,消息:f(a)}
 						)
 						;(async()=>{for await(const a of 直播间弹幕)池.push(自动应答(a))})()
-						手动操作=手动操作()
-						测试手动操作=passed=true||(async()=>(
-							console.assert(!(await 手动操作.next()).value),
-							console.assert((await 手动操作.next()).value),
-							console.assert(!(await 手动操作.next()).value),
-							console.assert((await 手动操作.next()).value),
-							console.info(arguments.callee.name)
-						))()
+						//const 手动操作2=手动操作()
+						//const 测试手动操作=passed=true||(async()=>{
+						//	console.assert((await 手动操作2.next()).value)
+						//	console.assert(!(await 手动操作2.next()).value)
+						//	console.assert((await 手动操作2.next()).value)
+						//	console.assert(!(await 手动操作2.next()).value)
+						//})()
+						const 是自动应答=a=>a.是自动应答
+						const 输入后发送=async a=>(
+							console.log("开始假装手动输入自动应答"),
+							消息=await 假装手动输入(a.消息),
+							console.log("假装手动输入完成"),{
+								之后:()=>(
+									console.log("自动应答"),
+									池.splice(池.indexOf(a),1),消息)})
+						const 处理手动操作=async()=>(
+							console.log("等待手动操作"),
+							/*
+							- [√] 问题，可能是，一次在next中等待用户操作，并放弃等待（执行了自动回复）之后
+								下一次next再等待时，会发生——上次等待仍然有效，会先执行上次
+								可能的方案：1. 异常，中断
+								2. 应该有一个——在一个函数执行过程中执行另一个函数
+									——在自动输入过程中等待手动操作
+								3. [√] 不复用“手动操作”的引用就好了
+							*/
+							手动操作2=手动操作()
+							,console.log((await 手动操作2.next()).value),
+							console.log("检测到手动操作"),{
+								之后:async()=>(
+									console.log("等待手动操作完成"),
+									console.log(!(await 手动操作2.next()).value)
+									)})
 						const next=async()=>(
-							是自动应答=a=>a.是自动应答,
-							a=池.sort((a,b)=>(
+							(async a=>是自动应答(a)?(
+								console.log("自动应答"),
+								xxx=(await Promise.race([输入后发送(a),处理手动操作()])),xxx.之后()
+								)
+								:假装手动输入(a.next()))
+							(池.sort((a,b)=>(
 								f=a=>是自动应答(a)?1:a.get预定时间(),
-								f(a)-f(b)))[0],
-							是自动应答(a)?(
-								输入后发送=(消息=await 假装手动输入(a.消息),{之后:()=>(池.splice(池.indexOf(a),1),消息)}),
-								处理手动操作=(await 手动操作.next(),{之后:async()=>(console.log("等待手动操作完成"),await 手动操作.next())}),
-								有手动操作时取消发送=(await Promise.race([输入后发送,处理手动操作])).之后())
-								:假装手动输入(a.next())
+								f(a)-f(b)))[0])
 						)
-						return asyncIterator.initial(next).filterOutUnfedineds()
+						return asyncIterator.initInfinite(next).filterOutUnfedineds()
+						//return[]
 					}
 					return 有手动操作时取消发送(直播间弹幕)
 				}
@@ -1510,7 +1549,7 @@ var dummy=(()=>{
 				id==217331?"表哥直播间":id==5074415?"半支烟直播间":id==6119609?狗带
 					:general
 		})()
-		//enhanceControl()
+		enhanceControl()
 		batchSendMessage(config.messages,config.answer)
 	})()
 })()
