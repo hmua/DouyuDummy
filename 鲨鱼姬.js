@@ -438,8 +438,7 @@ var dummy=(()=>{
 		q.filterOutUnfedineds=function(){return filterOutUnfedineds(this)}
 		
 		///以下是时间、事物相关的
-
-		///TODO:这个函数可能需要整理合并
+		
 		const frequently=async function*(check,interval=333){while(true)yield timeoutPromise(interval,check)}
 		const testFrequently=passed=true||(async()=>{
 			var s=true
@@ -467,9 +466,10 @@ var dummy=(()=>{
 				yield true;await timeoutPromise();}
 			for await(const b of tickOnChange(a()))console.log(b)
 		})()
+		///写得好累啊…………又要自己写Seq.skipWhile了啊……沃田……想试试Fable……
+		//const skipWhile=l=>condition=>
 		const till=(a,f)=>frequently(a)
 		Function.till=function(l){return till(this,l)}
-		///写得好累啊…………又要自己写Seq.skipWhile了啊……想试试Fable……
 		const testTill=passed=true||(async()=>{
 
 		})()
@@ -566,7 +566,7 @@ var dummy=(()=>{
 					///learned from https://stackoverflow.com/a/35718902/2537458, thanks to @Volune
 					const eventIterator=(target,eventName)=>{
 						class Controller{
-							next(){return new Promise(resolve=>target.addEventListener(eventName,function f(e) {
+							next(){return new Promise(resolve=>target.addEventListener(eventName,function f(e){
 								target.removeEventListener(eventName, f)
 								resolve({value:e.target,done:false})
 							}))}
@@ -576,8 +576,25 @@ var dummy=(()=>{
 					}
 					const testEventIterator=passed=true||(async()=>{
 						document.body.insertAdjacentHTML("beforeEnd","<input/>")
-						const t=document.body.lastChild;
+						window.scrollTo(0,document.body.scrollHeight)
+						const t=document.body.lastChild
 						for await(const a of eventIterator(t,"input"))console.log(a)
+					})()
+					const testMutationObserver=passed=true||(()=>{
+						document.body.insertAdjacentHTML("beforeEnd","<ol/>")
+						const ol=document.body.lastChild
+						document.body.insertAdjacentHTML("beforeEnd","<input value='3'/>")
+						const volume=document.body.lastChild
+						document.body.insertAdjacentHTML("beforeEnd","<input value='add' type='button'/>")
+						const button=document.body.lastChild
+						window.scrollTo(0,document.body.scrollHeight)
+						button.addEventListener("click",()=>{
+							for(i=0;i<volume.value;i++)ol.insertAdjacentHTML("beforeEnd",`<li>${i}</li>`);
+							window.scrollTo(0,document.body.scrollHeight)	})
+						const o=new MutationObserver(function(mutations){
+							for(const a of mutations)console.log(a.addedNodes.length)
+						})
+						o.observe(ol,{childList:true})
 					})()
 					const onMessageReceived=()=>{
 						const a=eventIterator(list,"DOMNodeInserted")

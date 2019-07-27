@@ -162,3 +162,227 @@
 #### 斗鱼网页版直播间弹幕功能记录
 1. 2019年3月4日开始解除了重复弹幕的限制
 1. 一个账号可以在多个直播间发弹幕，不需要反复连接或者刷新
+
+# 上手Fable
+1. [在线试玩](https://fable.io/repl/)
+2. [简单了解 by @Zaid Ajaj](https://medium.com/@zaid.naom/f-interop-with-javascript-in-fable-the-complete-guide-ccc5b896a59f)
+## 用Fable生成JS，在浏览器里运行
+### 尝试一下引用Fable的库
+- https://fable.io/repl/js/repl/fable-library/Int32.js
+- Firefox about:blank是不能import的！
+- import { parse , tryParse } from "https://fable.io/repl/js/repl/fable-library/Int32.js";
+	- Firefox✗ **SyntaxError: import declarations may only appear at top level of a module**
+- import(url) Firefox✓
+```
+var int32 = await import("https://fable.io/repl/js/repl/fable-library/Int32.js")
+var parse=int32.parse
+console.log(parse("321"))
+```
+### 试一下修改运行生成的代码
+#### 测试的Fable代码
+```
+open Fable.Core
+open Fable.Core.JsInterop
+
+module room=
+  module wrapper=
+    open Browser.Dom
+    let private id=int32<|"123"
+    //System.Diagnostics.Debugger.Break()
+    window.alert(id)
+```
+#### 生成的JS
+```
+import { parse } from "fable-library/Int32.js";
+const id = parse("123", 511, false, 32);
+window.alert(id);
+```
+#### 修改成可用的
+- 只需要修改import
+```
+var int32 = await import("https://fable.io/repl/js/repl/fable-library/Int32.js")
+var parse=int32.parse
+const id = parse("123", 511, false, 32);
+window.alert(id);
+```
+```
+var 鲨鱼姬 = await import("file:\\C:\Users\a_a\Desktop\鲨鱼姬generated.js")
+window.alert(鲨鱼姬);
+```
+```
+import { parse } from "fable-library/Int32.js";
+import { type } from "fable-library/Reflection.js";
+import { declare } from "fable-library/Types.js";
+const id = parse(window.location.pathname.slice(1, window.location.pathname.length), 511, false, 32);
+
+function get(a) {
+  return document.getElementsByClassName(a)[0];
+}
+
+const chat$002E$6B22$8FCE = declare(function Test_room_wrapper_chat___(user) {
+  const $this$$1 = this;
+  $this$$1.user = user;
+});
+
+function chat$002E$6B22$8FCE$reflection() {
+  return type("Test.room.wrapper.chat.欢迎");
+}
+
+function chat$002E$6B22$8FCE$$$$002Ector$$4E60E31B(user) {
+  return this instanceof chat$002E$6B22$8FCE ? chat$002E$6B22$8FCE.call(this, user) : new chat$002E$6B22$8FCE(user);
+}
+
+function chat$002E$6B22$8FCE$$get_User(this$) {
+  return this$.user;
+}
+
+function test() {
+  debugger;
+  window.alert(id);
+}
+```
+```
+const [tryParse,parse]=await(async()=>{const a=await import("https://fable.io/repl/js/repl/fable-library/Int32.js");return[a.tryParse,a.parse]})();
+const type=await(async()=>{const a=await import("https://fable.io/repl/js/repl/fable-library/Reflection.js");return a.type})();
+const declare=await(async()=>{const a=await import("https://fable.io/repl/js/repl/fable-library/Types.js");return a.declare})();
+const equals=await(async()=>{const a=await import("https://fable.io/repl/js/repl/fable-library/Util.js");return a.equals})();
+
+const room$002Ewrapper$$$id = parse(window.location.pathname.slice(1, window.location.pathname.length), 511, false, 32);
+console.assert(room$002Ewrapper$$$id === 61196091);
+
+function room$002Ewrapper$$$get(a) {
+  return document.getElementsByClassName(a)[0];
+}
+
+const room$002Ewrapper$002Echat$002E$6B22$8FCE = declare(function Test_room_wrapper_chat___(user) {
+  const $this$$1 = this;
+  $this$$1.user = user;
+});
+
+function room$002Ewrapper$002Echat$002E$6B22$8FCE$reflection() {
+  return type("Test.room.wrapper.chat.欢迎");
+}
+
+function room$002Ewrapper$002Echat$002E$6B22$8FCE$$$$002Ector$$4E60E31B(user) {
+  return this instanceof room$002Ewrapper$002Echat$002E$6B22$8FCE ? room$002Ewrapper$002Echat$002E$6B22$8FCE.call(this, user) : new room$002Ewrapper$002Echat$002E$6B22$8FCE(user);
+}
+
+function room$002Ewrapper$002Echat$002E$6B22$8FCE$$get_User(a$$1) {
+  return a$$1.user;
+}
+
+const room$002Ewrapper$002Echat$002E$611F$8C22$793C$7269 = declare(function Test_room_wrapper_chat_____(user$$1, quantity, gift) {
+  const $this$$2 = this;
+  $this$$2["user@15"] = user$$1;
+  $this$$2["quantity@15"] = quantity;
+  $this$$2["gift@15"] = gift;
+});
+
+function room$002Ewrapper$002Echat$002E$611F$8C22$793C$7269$reflection() {
+  return type("Test.room.wrapper.chat.感谢礼物");
+}
+
+function room$002Ewrapper$002Echat$002E$611F$8C22$793C$7269$$$$002Ector$$Z664D4D85(user$$1, quantity, gift) {
+  return this instanceof room$002Ewrapper$002Echat$002E$611F$8C22$793C$7269 ? room$002Ewrapper$002Echat$002E$611F$8C22$793C$7269.call(this, user$$1, quantity, gift) : new room$002Ewrapper$002Echat$002E$611F$8C22$793C$7269(user$$1, quantity, gift);
+}
+
+function room$002Ewrapper$002Echat$002E$611F$8C22$793C$7269$$get_user(a$$2) {
+  return a$$2["user@15"];
+}
+
+function room$002Ewrapper$002Echat$002E$611F$8C22$793C$7269$$get_gift(a$$3) {
+  return a$$3["gift@15"];
+}
+
+function room$002Ewrapper$002Echat$002E$611F$8C22$793C$7269$$get_quantity(a$$4) {
+  return a$$4["quantity@15"];
+}
+
+const room$002Ewrapper$002Echat$002Espeak$$$input = room$002Ewrapper$$$get("ChatSend-txt");
+const room$002Ewrapper$002Echat$002Espeak$$$sendButton = room$002Ewrapper$$$get("ChatSend-button");
+
+function room$002Ewrapper$002Echat$002Espeak$$$send(a$$5) {
+  room$002Ewrapper$002Echat$002Espeak$$$input.value = a$$5;
+  return room$002Ewrapper$002Echat$002Espeak$$$sendButton.click();
+}
+
+function room$002Ewrapper$002Echat$002Espeak$$$getRoomMsgCd() {
+  const patternInput = tryParse(room$002Ewrapper$002Echat$002Espeak$$$sendButton.innerText, 511, false, 32);
+  return patternInput[1] | 0;
+}
+
+function room$002Ewrapper$002Echat$002Espeak$$$canSend() {
+  return room$002Ewrapper$002Echat$002Espeak$$$sendButton.classList.contains("is-gray");
+}
+
+function room$002Ewrapper$002Echat$002Espeak$$$testSend() {
+  room$002Ewrapper$002Echat$002Espeak$$$send("[emot:dy108][emot:dy108]");
+  console.log(room$002Ewrapper$002Echat$002Espeak$$$getRoomMsgCd());
+  debugger;
+}
+
+if (false) {
+  room$002Ewrapper$002Echat$002Espeak$$$testSend();
+}
+
+function room$002Ewrapper$002Eplayer$$$getPauseButton() {
+  return room$002Ewrapper$$$get("pause-c594e8");
+}
+
+function room$002Ewrapper$002Eplayer$$$pause() {
+  return room$002Ewrapper$002Eplayer$$$getPauseButton().click();
+}
+
+const room$002Ewrapper$$$danmuCloseButton = room$002Ewrapper$$$get("showdanmu-42b0ac");
+
+function room$002Ewrapper$$$hideDanmu() {
+  return room$002Ewrapper$$$danmuCloseButton.click();
+}
+
+const room$002Ewrapper$$$pageFullscreenButton = room$002Ewrapper$$$get("wfs-2a8e83");
+
+function room$002Ewrapper$$$pageFullscreen() {
+  return room$002Ewrapper$$$pageFullscreenButton.click();
+}
+
+function room$002Ewrapper$$$getBackpackPopup() {
+  return room$002Ewrapper$$$get("Backpack JS_Backpack");
+}
+
+function room$002Ewrapper$$$isShowingBackpack() {
+  return !equals(room$002Ewrapper$$$getBackpackPopup(), null);
+}
+
+function room$002Ewrapper$$$getBubbleBox() {
+  return room$002Ewrapper$$$get("bubble-box-418e1e");
+}
+
+function room$002Ewrapper$002Euser$$$isEditingMessage() {
+  return room$002Ewrapper$002Echat$002Espeak$$$input.value !== "";
+}
+
+function room$002Ewrapper$002Euser$$$isOpeningBackpack() {
+  return room$002Ewrapper$$$isShowingBackpack();
+}
+
+function room$002Ewrapper$002Euser$$$isOperating() {
+  if (room$002Ewrapper$002Euser$$$isEditingMessage()) {
+    return true;
+  } else {
+    return room$002Ewrapper$002Euser$$$isOpeningBackpack();
+  }
+}
+```
+#### 在console里声明module，可以减免一些修改
+*没找到，大概不支持*
+#### 问题
+```
+const foo=(()=>{
+	const bar=(()=>{
+		const test="blabla!"
+		return{test}
+	})()
+	return{bar}
+})()
+console.log(foo.bar.test)
+```
